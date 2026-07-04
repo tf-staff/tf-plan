@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TF-Plan</title>
+<script src="https://p.trellocdn.com/power-up.min.js"></script>
+<link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
+<style>
+  :root{
+    --tf-navy:#022851;
+    --tf-gold:#FFBF00;
+    --tf-teal:#0E7E8E;
+    --tf-red:#B3001B;
+    --tf-gray:#5E6C84;
+    --tf-bg:#FFFFFF;
+    --tf-line:#DFE1E6;
+  }
+  body{ margin:0; padding:10px 12px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; color:#172B4D; background:var(--tf-bg); }
+  h2{ font-size:14px; margin:0 0 8px; color:var(--tf-navy); }
+  h3{ font-size:12px; margin:14px 0 6px; color:var(--tf-gray); text-transform:uppercase; letter-spacing:.04em; }
+  label{ display:block; font-size:12px; font-weight:600; margin:10px 0 4px; color:var(--tf-navy); }
+  select,input[type=number]{ width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--tf-line); border-radius:3px; font-size:13px; }
+  .row{ display:flex; gap:8px; }
+  .row > *{ flex:1; }
+  button.tf{ width:100%; margin-top:12px; padding:8px 10px; border:none; border-radius:3px; font-size:13px; font-weight:600; cursor:pointer; }
+  button.tf.primary{ background:var(--tf-navy); color:#fff; }
+  button.tf.primary:hover{ background:#03356B; }
+  button.tf.danger{ background:#fff; color:var(--tf-red); border:1px solid var(--tf-red); }
+  button.tf.warn{ background:var(--tf-gold); color:var(--tf-navy); }
+  button.tf:disabled{ opacity:.5; cursor:default; }
+  .presets{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .presets button{ flex:1 0 28%; padding:6px 0; border:1px solid var(--tf-line); background:#FAFBFC; border-radius:3px; font-size:12px; cursor:pointer; }
+  .presets button.sel{ background:var(--tf-navy); color:#fff; border-color:var(--tf-navy); }
+  .note{ font-size:11px; color:var(--tf-gray); margin-top:8px; line-height:1.4; }
+  .active-box{ border:1px solid var(--tf-teal); border-left:4px solid var(--tf-teal); border-radius:3px; padding:8px 10px; margin-bottom:6px; font-size:12px; line-height:1.5; }
+  .active-box .big{ font-size:16px; font-weight:700; color:var(--tf-navy); }
+  .pill{ display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+  .pill.ok{ background:#E3FCEF; color:#006644; }
+  .pill.bad{ background:#FFEBE6; color:var(--tf-red); }
+  table{ width:100%; border-collapse:collapse; font-size:12px; }
+  th{ text-align:left; color:var(--tf-gray); font-weight:600; padding:4px 6px; border-bottom:2px solid var(--tf-line); }
+  td{ padding:5px 6px; border-bottom:1px solid var(--tf-line); vertical-align:top; }
+  .empty{ color:var(--tf-gray); font-size:12px; font-style:italic; padding:8px 0; }
+  #app{ min-height:40px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* =====================================================================
+   TF-Plan — countdown-and-move Power-Up for Tech Foundry
+   ---------------------------------------------------------------------
+   Chassis modes (?mode=):
+     connector  — TrelloPowerUp.initialize + board scan loop (default)
+     editor     — card popup: set / cancel a timer
+     summary    — card-back section: this card's timer + move history
+     dashboard  — board popup / standalone: auth, all timers, log, setup
+   ---------------------------------------------------------------------
+   Data model (single source of truth, board-level shared data):
+     tfplan_index : { [cardId]: { cardName, destListId, destListName,
+                                  startTs, endTs, durationMin, setByName,
+                                  claimedBy?, claimedAt? } }
+     tfplan_log   : [ { cardId, cardName, destListName, setByName,
+                        movedTs, status } ]  (newest first, capped)
+   ===================================================================== */
+
+var APP_KEY  = 'PASTE_YOUR_TRELLO_API_KEY_HERE'; // https://trello.com/power-ups/admin -> your Power-Up -> API key
+var APP_NAME = 'TF-Plan';
+
+var SCAN_INTERVAL_MS = 15000;   // how often the open board checks for expired timers
+var CLAIM_STALE_MS   = 120000;  // a claim older than this is considered dead (client closed mid-move)
+var CLAIM_SETTLE_MS  = 900;     // wait after writing a claim before confirming we won it
+var LOG_CAP          = 50;
+
+var CLIENT_ID = 'c-' + Math.random().toString(36).slice(2, 10);
+
+var GRAY_ICON = 'https://cdn.glitch.global/3b785fd6-6068-4b6a-b6e3-2b6b7e0a94d7/clock.svg'; // swap for your hosted TF icon
+// If you host an icon next to this file, use: var GRAY_ICON = location.origin + location.pathname.replace(/index\.html.*/,'') + 'icon.svg';
+
+function fmtRemaining(ms){
+  if (ms <= 0) return 'now';
+  var m = Math.ceil(ms / 60000);
+  if (m < 60) return m + 'm';
+  var h = Math.floor(m / 60), r = m % 60;
+  if (h < 24) return r ? (h + 'h ' + r + 'm') : (h + 'h');
+  var d = Math.floor(h / 24);
+  return d + 'd ' + (h % 24) + 'h';
+}
+function fmtClock(ts){
+  var d = new Date(ts);
+  return d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) + ' ' +
+         d.toLocaleDateString([], {month:'short', day:'numeric'});
+}
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+/* =====================================================================
+   CONNECTOR + SCAN LOOP
+   The connector iframe persists for the life of the board tab, so a
+   setInterval here is our "server". Capability callbacks hand us fresh
+   t contexts; we keep the latest one for the loop to use.
+   ===================================================================== */
+
+var scanT = null;
+var scanTimerId = null;
+var scanBusy = false;
+
+function ensureScanLoop(t){
+  scanT = t; // always keep the freshest context
+  if (!scanTimerId){
+    scanTimerId = setInterval(scanAndMove, SCAN_INTERVAL_MS);
+    setTimeout(scanAndMove, 3000); // first pass shortly after board load
+    console.log('[TF-Plan] scan loop started (' + CLIENT_ID + ')');
+  }
+}
+
+function scanAndMove(){
+  if (scanBusy || !scanT) return;
+  scanBusy = true;
+  var t = scanT;
+  var now = Date.now();
+
+  t.get('board', 'shared', 'tfplan_index')
+    .then(function(index){
+      index = index || {};
+      var dueIds = Object.keys(index).filter(function(id){
+        var e = index[id];
+        if (!e || e.endTs > now) return false;
+        // respect a live claim from another client; steal stale ones
+        if (e.claimedBy && e.claimedBy !== CLIENT_ID && (now - (e.claimedAt || 0)) < CLAIM_STALE_MS) return false;
+        return true;
+      });
+      if (!dueIds.length) return null;
+
+      var token;
+      try { token = t.getRestApi().getToken(); } catch(err){ token = Promise.resolve(null); }
+      return Promise.resolve(token).then(function(tok){
+        if (!tok){
+          console.warn('[TF-Plan] timers are due but this client is not authorized — open TF-Plan dashboard and authorize.');
+          return null;
+        }
+        // process sequentially to keep index writes orderly
+        return dueIds.reduce(function(chain, cardId){
+          return chain.then(function(){ return moveOne(t, cardId, tok); });
+        }, Promise.resolve());
+      });
+    })
+    .catch(function(err){ console.warn('[TF-Plan] scan error', err); })
+    .then(function(){ scanBusy = false; });
+}
+
+function moveOne(t, cardId, token){
+  var entry;
+  // 1) claim
+  return t.get('board', 'shared', 'tfplan_index').then(function(index){
+    index = index || {};
+    entry = index[cardId];
+    if (!entry) return Promise.reject('gone');
+    if (entry.claimedBy && entry.claimedBy !== CLIENT_ID &&
+        (Date.now() - (entry.claimedAt || 0)) < CLAIM_STALE_MS) return Promise.reject('claimed-elsewhere');
+    entry.claimedBy = CLIENT_ID;
+    entry.claimedAt = Date.now();
+    index[cardId] = entry;
+    return t.set('board', 'shared', 'tfplan_index', index);
+  })
+  // 2) settle, confirm the claim survived (first writer wins)
+  .then(function(){ return sleep(CLAIM_SETTLE_MS); })
+  .then(function(){ return t.get('board', 'shared', 'tfplan_index'); })
+  .then(function(index){
+    index = index || {};
+    var e = index[cardId];
+    if (!e || e.claimedBy !== CLIENT_ID) return Promise.reject('lost-claim');
+    // 3) the actual move
+    var url = 'https://api.trello.com/1/cards/' + cardId +
+              '?idList=' + encodeURIComponent(e.destListId) +
+              '&key=' + APP_KEY + '&token=' + token;
+    return fetch(url, { method:'PUT' }).then(function(resp){
+      if (!resp.ok) return Promise.reject('move failed: HTTP ' + resp.status);
+      return resp.json();
+    });
+  })
+  // 4) remove from index + append to log
+  .then(function(){
+    return t.get('board', 'shared', 'tfplan_index').then(function(index){
+      index = index || {};
+      delete index[cardId];
+      return t.set('board', 'shared', 'tfplan_index', index);
+    });
+  })
+  .then(function(){
+    return t.get('board', 'shared', 'tfplan_log').then(function(log){
+      log = log || [];
+      log.unshift({
+        cardId: cardId,
+        cardName: entry.cardName,
+        destListName: entry.destListName,
+        setByName: entry.setByName,
+        movedTs: Date.now(),
+        status: 'moved'
+      });
+      if (log.length > LOG_CAP) log.length = LOG_CAP;
+      return t.set('board', 'shared', 'tfplan_log', log);
+    });
+  })
+  .then(function(){
+    console.log('[TF-Plan] moved card ' + cardId + ' -> ' + entry.destListName);
+  })
+  .catch(function(reason){
+    if (reason === 'gone' || reason === 'claimed-elsewhere' || reason === 'lost-claim') return; // benign
+    console.warn('[TF-Plan] moveOne(' + cardId + '):', reason);
+    // release our claim so a later pass (or another client) can retry
+    return t.get('board', 'shared', 'tfplan_index').then(function(index){
+      index = index || {};
+      if (index[cardId] && index[cardId].claimedBy === CLIENT_ID){
+        delete index[cardId].claimedBy;
+        delete index[cardId].claimedAt;
+        return t.set('board', 'shared', 'tfplan_index', index);
+      }
+    });
+  });
+}
+
+function initConnector(){
+  window.TrelloPowerUp.initialize({
+
+    'board-buttons': function(t){
+      ensureScanLoop(t);
+      return [{
+        icon: { light: GRAY_ICON, dark: GRAY_ICON },
+        text: 'TF-Plan',
+        callback: function(t){
+          return t.popup({ title:'TF-Plan', url:'./index.html?mode=dashboard', height:420 });
+        }
+      }];
+    },
+
+    'card-buttons': function(t){
+      ensureScanLoop(t);
+      return [{
+        icon: GRAY_ICON,
+        text: 'TF-Plan Timer',
+        callback: function(t){
+          return t.popup({ title:'TF-Plan Timer', url:'./index.html?mode=editor', height:330 });
+        }
+      }];
+    },
+
+    'card-badges': function(t){
+      ensureScanLoop(t);
+      var cardId = t.getContext().card;
+      return t.get('board', 'shared', 'tfplan_index').then(function(index){
+        if (!index || !index[cardId]) return [];
+        return [{
+          dynamic: function(t){
+            return t.get('board', 'shared', 'tfplan_index').then(function(idx){
+              var e = idx && idx[t.getContext().card];
+              if (!e) return { refresh: 60 }; // timer completed/cancelled; badge fades on next render
+              var rem = e.endTs - Date.now();
+              return {
+                text: (rem <= 0 ? '⏱ moving…' : '⏱ ' + fmtRemaining(rem)) + ' → ' + e.destListName,
+                color: rem <= 0 ? 'red' : (rem < 5 * 60000 ? 'yellow' : 'sky'),
+                refresh: 10
+              };
+            });
+          }
+        }];
+      });
+    },
+
+    'card-back-section': function(t){
+      ensureScanLoop(t);
+      var cardId = t.getContext().card;
+      return Promise.all([
+        t.get('board', 'shared', 'tfplan_index'),
+        t.get('board', 'shared', 'tfplan_log')
+      ]).then(function(res){
+        var hasTimer = res[0] && res[0][cardId];
+        var hasHistory = (res[1] || []).some(function(l){ return l.cardId === cardId; });
+        if (!hasTimer && !hasHistory) return null;
+        return {
+          title: 'TF-Plan',
+          icon: GRAY_ICON,
+          content: { type:'iframe', url: t.signUrl('./index.html?mode=summary'), height: 120 }
+        };
+      });
+    }
+
+  }, { appKey: APP_KEY, appName: APP_NAME });
+}
+
+/* =====================================================================
+   EDITOR — card popup
+   ===================================================================== */
+
+function initEditor(){
+  var t = window.TrelloPowerUp.iframe({ appKey: APP_KEY, appName: APP_NAME });
+  var app = document.getElementById('app');
+  var cardId = t.getContext().card;
+  var selMinutes = 60;
+
+  function render(){
+    Promise.all([
+      t.lists('id', 'name'),
+      t.get('board', 'shared', 'tfplan_index'),
+      t.card('id', 'name', 'idList'),
+      t.member('fullName'),
+      t.getRestApi().isAuthorized()
+    ]).then(function(res){
+      var lists = res[0], index = res[1] || {}, card = res[2],
+          me = res[3], authed = res[4];
+      var existing = index[cardId];
+
+      var html = '';
+
+      if (!authed){
+        html += '<div class="active-box" style="border-color:var(--tf-gold);border-left-color:var(--tf-gold)">' +
+                '<b>One-time setup:</b> this browser must authorize TF-Plan so it can move cards.' +
+                '<button class="tf warn" id="btnAuth">Authorize TF-Plan</button></div>';
+      }
+
+      if (existing){
+        var rem = existing.endTs - Date.now();
+        html += '<div class="active-box">' +
+                '<div class="big">' + (rem <= 0 ? 'Moving momentarily' : fmtRemaining(rem) + ' remaining') + '</div>' +
+                'Moves to <b>' + esc(existing.destListName) + '</b> at ' + fmtClock(existing.endTs) + '<br>' +
+                'Set by ' + esc(existing.setByName || '—') +
+                '</div>' +
+                '<button class="tf danger" id="btnCancel">Cancel timer</button>' +
+                '<div class="note">Setting a new timer below replaces this one.</div>';
+      }
+
+      html += '<label for="dest">Destination column</label><select id="dest">';
+      lists.forEach(function(l){
+        var tag = (l.id === card.idList) ? ' (current)' : '';
+        html += '<option value="' + l.id + '"' + (l.id === card.idList ? ' disabled' : '') + '>' +
+                esc(l.name) + tag + '</option>';
+      });
+      html += '</select>';
+
+      html += '<label>Duration</label><div class="presets" id="presets">';
+      [[15,'15 min'],[30,'30 min'],[60,'1 hr'],[120,'2 hr'],[240,'4 hr'],[480,'8 hr']].forEach(function(p){
+        html += '<button data-min="' + p[0] + '"' + (p[0] === selMinutes ? ' class="sel"' : '') + '>' + p[1] + '</button>';
+      });
+      html += '</div>';
+      html += '<div class="row" style="margin-top:8px">' +
+              '<input type="number" id="customVal" min="1" placeholder="Custom…">' +
+              '<select id="customUnit"><option value="1">minutes</option><option value="60">hours</option><option value="1440">days</option></select>' +
+              '</div>';
+
+      html += '<button class="tf primary" id="btnStart">Start timer</button>';
+      html += '<div class="note">The move fires from whichever Tech Foundry machine has this board open. Keep the dashboard tab foregrounded.</div>';
+
+      app.innerHTML = html;
+
+      var authBtn = document.getElementById('btnAuth');
+      if (authBtn) authBtn.onclick = function(){
+        t.getRestApi().authorize({ scope:{ read:true, write:true }, expiration:'never' })
+          .then(render)
+          .catch(function(){ /* user closed the window */ });
+      };
+
+      var cancelBtn = document.getElementById('btnCancel');
+      if (cancelBtn) cancelBtn.onclick = function(){
+        t.get('board', 'shared', 'tfplan_index').then(function(idx){
+          idx = idx || {};
+          delete idx[cardId];
+          return t.set('board', 'shared', 'tfplan_index', idx);
+        }).then(function(){ return t.closePopup(); });
+      };
+
+      document.getElementById('presets').onclick = function(ev){
+        var b = ev.target.closest('button'); if (!b) return;
+        selMinutes = parseInt(b.getAttribute('data-min'), 10);
+        document.getElementById('customVal').value = '';
+        Array.prototype.forEach.call(this.querySelectorAll('button'), function(x){ x.classList.remove('sel'); });
+        b.classList.add('sel');
+      };
+
+      document.getElementById('customVal').oninput = function(){
+        Array.prototype.forEach.call(document.querySelectorAll('#presets button'), function(x){ x.classList.remove('sel'); });
+      };
+
+      document.getElementById('btnStart').onclick = function(){
+        var destSel = document.getElementById('dest');
+        var destId = destSel.value;
+        var destName = destSel.options[destSel.selectedIndex].text.replace(/ \(current\)$/, '');
+        var cv = parseFloat(document.getElementById('customVal').value);
+        var minutes = (!isNaN(cv) && cv > 0)
+          ? cv * parseInt(document.getElementById('customUnit').value, 10)
+          : selMinutes;
+        if (!destId || !minutes || destId === card.idList) return;
+
+        var now = Date.now();
+        t.get('board', 'shared', 'tfplan_index').then(function(idx){
+          idx = idx || {};
+          idx[cardId] = {
+            cardName: card.name,
+            destListId: destId,
+            destListName: destName,
+            startTs: now,
+            endTs: now + minutes * 60000,
+            durationMin: minutes,
+            setByName: me.fullName
+          };
+          return t.set('board', 'shared', 'tfplan_index', idx);
+        }).then(function(){ return t.closePopup(); });
+      };
+    });
+  }
+  render();
+  t.render(render);
+}
+
+/* =====================================================================
+   SUMMARY — card-back section iframe
+   ===================================================================== */
+
+function initSummary(){
+  var t = window.TrelloPowerUp.iframe({ appKey: APP_KEY, appName: APP_NAME });
+  var app = document.getElementById('app');
+  var cardId = t.getContext().card;
+
+  function render(){
+    Promise.all([
+      t.get('board', 'shared', 'tfplan_index'),
+      t.get('board', 'shared', 'tfplan_log')
+    ]).then(function(res){
+      var e = (res[0] || {})[cardId];
+      var mine = (res[1] || []).filter(function(l){ return l.cardId === cardId; }).slice(0, 3);
+      var html = '';
+
+      if (e){
+        var rem = e.endTs - Date.now();
+        html += '<div class="active-box">' +
+                '<div class="big">' + (rem <= 0 ? 'Moving momentarily' : fmtRemaining(rem) + ' remaining') + '</div>' +
+                '→ <b>' + esc(e.destListName) + '</b> at ' + fmtClock(e.endTs) +
+                ' &nbsp;·&nbsp; set by ' + esc(e.setByName || '—') +
+                '</div>';
+      } else {
+        html += '<div class="empty">No active timer on this card.</div>';
+      }
+      if (mine.length){
+        html += '<h3>Recent moves</h3>';
+        mine.forEach(function(l){
+          html += '<div style="font-size:12px;padding:2px 0">→ ' + esc(l.destListName) +
+                  ' at ' + fmtClock(l.movedTs) + ' (set by ' + esc(l.setByName || '—') + ')</div>';
+        });
+      }
+      app.innerHTML = html;
+      t.sizeTo('#app').catch(function(){});
+    });
+  }
+  render();
+  setInterval(render, 20000);
+  t.render(render);
+}
+
+/* =====================================================================
+   DASHBOARD — board-button popup, also usable standalone
+   ===================================================================== */
+
+function initDashboard(){
+  var inTrello = (window.location.search.indexOf('signature=') !== -1) || window.parent !== window;
+  if (!inTrello){
+    document.getElementById('app').innerHTML =
+      '<h2>TF-Plan</h2>' +
+      '<p class="note" style="font-size:13px">Countdown-and-move Power-Up for UC Davis Tech Foundry.<br><br>' +
+      '<b>Setup:</b><br>' +
+      '1. Create the Power-Up at trello.com/power-ups/admin, iframe connector URL = this page (no ?mode).<br>' +
+      '2. Enable capabilities: board-buttons, card-buttons, card-badges, card-back-section.<br>' +
+      '3. Paste the API key into APP_KEY in this file and redeploy.<br>' +
+      '4. On the dashboard machine, open the board, click TF-Plan, and authorize.</p>';
+    return;
+  }
+
+  var t = window.TrelloPowerUp.iframe({ appKey: APP_KEY, appName: APP_NAME });
+  var app = document.getElementById('app');
+
+  function render(){
+    Promise.all([
+      t.get('board', 'shared', 'tfplan_index'),
+      t.get('board', 'shared', 'tfplan_log'),
+      t.getRestApi().isAuthorized()
+    ]).then(function(res){
+      var index = res[0] || {}, log = res[1] || [], authed = res[2];
+      var ids = Object.keys(index).sort(function(a, b){ return index[a].endTs - index[b].endTs; });
+      var html = '';
+
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+              '<span>Mover authorization: ' +
+              (authed ? '<span class="pill ok">authorized</span>' : '<span class="pill bad">not authorized</span>') +
+              '</span></div>';
+      if (!authed){
+        html += '<button class="tf warn" id="btnAuth" style="margin-top:0">Authorize this browser to move cards</button>' +
+                '<div class="note">Timers can be set without this, but at least one always-open machine must be authorized for moves to fire. Use the shared TF service account here.</div>';
+      }
+
+      html += '<h3>Active timers (' + ids.length + ')</h3>';
+      if (!ids.length){
+        html += '<div class="empty">None. Set one from any card via the TF-Plan Timer button.</div>';
+      } else {
+        html += '<table><tr><th>Card</th><th>Moves to</th><th>In</th><th></th></tr>';
+        ids.forEach(function(id){
+          var e = index[id];
+          var rem = e.endTs - Date.now();
+          html += '<tr>' +
+                  '<td>' + esc(e.cardName) + '<br><span class="note" style="margin:0">' + esc(e.setByName || '') + '</span></td>' +
+                  '<td>' + esc(e.destListName) + '</td>' +
+                  '<td>' + (rem <= 0 ? '<b style="color:var(--tf-red)">due</b>' : fmtRemaining(rem)) + '</td>' +
+                  '<td><a href="#" data-cancel="' + id + '" style="color:var(--tf-red);font-size:11px">cancel</a></td>' +
+                  '</tr>';
+        });
+        html += '</table>';
+      }
+
+      html += '<h3>Recent moves</h3>';
+      if (!log.length){
+        html += '<div class="empty">No moves logged yet.</div>';
+      } else {
+        html += '<table><tr><th>Card</th><th>Moved to</th><th>When</th></tr>';
+        log.slice(0, 10).forEach(function(l){
+          html += '<tr><td>' + esc(l.cardName) + '</td><td>' + esc(l.destListName) + '</td><td>' + fmtClock(l.movedTs) + '</td></tr>';
+        });
+        html += '</table>';
+      }
+
+      app.innerHTML = html;
+
+      var authBtn = document.getElementById('btnAuth');
+      if (authBtn) authBtn.onclick = function(){
+        t.getRestApi().authorize({ scope:{ read:true, write:true }, expiration:'never' })
+          .then(render).catch(function(){});
+      };
+      Array.prototype.forEach.call(app.querySelectorAll('[data-cancel]'), function(a){
+        a.onclick = function(ev){
+          ev.preventDefault();
+          var id = a.getAttribute('data-cancel');
+          t.get('board', 'shared', 'tfplan_index').then(function(idx){
+            idx = idx || {};
+            delete idx[id];
+            return t.set('board', 'shared', 'tfplan_index', idx);
+          }).then(render);
+        };
+      });
+    });
+  }
+  render();
+  setInterval(render, 15000);
+  t.render(render);
+}
+
+/* ===================================================================== */
+
+var mode = new URLSearchParams(window.location.search).get('mode') || 'connector';
+if      (mode === 'editor')    initEditor();
+else if (mode === 'summary')   initSummary();
+else if (mode === 'dashboard') initDashboard();
+else                           initConnector();
+</script>
+</body>
+</html>
