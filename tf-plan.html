@@ -360,7 +360,7 @@ function initEditor(){
 
       var authBtn = document.getElementById('btnAuth');
       if (authBtn) authBtn.onclick = function(){
-        t.getRestApi().authorize({ scope:{ read:true, write:true }, expiration:'never' })
+        t.getRestApi().authorize({ scope:'read,write', expiration:'never' })
           .then(render)
           .catch(function(){ /* user closed the window */ });
       };
@@ -534,7 +534,7 @@ function initDashboard(){
 
       var authBtn = document.getElementById('btnAuth');
       if (authBtn) authBtn.onclick = function(){
-        t.getRestApi().authorize({ scope:{ read:true, write:true }, expiration:'never' })
+        t.getRestApi().authorize({ scope:'read,write', expiration:'never' })
           .then(render).catch(function(){});
       };
       Array.prototype.forEach.call(app.querySelectorAll('[data-cancel]'), function(a){
