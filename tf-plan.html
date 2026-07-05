@@ -633,25 +633,22 @@ function initPanel(){
    DASHBOARD — board-button popup; setup instructions when standalone
    ===================================================================== */
 
+function showSetup(){
+  document.documentElement.setAttribute('data-color-mode', 'dark');
+  document.body.style.background = 'var(--bg)';
+  document.getElementById('app').innerHTML =
+    '<div class="setup"><h2>' + inlineClock(16) + 'TF-Plan</h2>' +
+    '<p>Countdown-and-move Power-Up for UC Davis Tech Foundry. This page is the Power-Up connector; it only becomes interactive inside Trello.</p>' +
+    '<p><b>Setup:</b></p><ol>' +
+    '<li>Create the Power-Up at trello.com/power-ups/admin; iframe connector URL = this page (no ?mode).</li>' +
+    '<li>Add your GitHub Pages origin to Allowed Origins.</li>' +
+    '<li>Enable capabilities: board-buttons, card-badges, card-back-section.</li>' +
+    '<li>Paste the API key into APP_KEY in this file and redeploy.</li>' +
+    '<li>On the always-open machine, open the board, click the TF-Plan board button, and authorize.</li></ol></div>';
+}
+
 function initDashboard(){
-  var framed = (window.self !== window.top);
   var app = document.getElementById('app');
-
-  if (!framed){
-    document.documentElement.setAttribute('data-color-mode', 'dark');
-    document.body.style.background = 'var(--bg)';
-    app.innerHTML =
-      '<div class="setup"><h2>' + inlineClock(16) + 'TF-Plan</h2>' +
-      '<p>Countdown-and-move Power-Up for UC Davis Tech Foundry.</p>' +
-      '<p><b>Setup:</b></p><ol>' +
-      '<li>Create the Power-Up at trello.com/power-ups/admin; iframe connector URL = this page (no ?mode).</li>' +
-      '<li>Add your GitHub Pages origin to Allowed Origins.</li>' +
-      '<li>Enable capabilities: board-buttons, card-badges, card-back-section.</li>' +
-      '<li>Paste the API key into APP_KEY in this file and redeploy.</li>' +
-      '<li>On the always-open machine, open the board, click the TF-Plan board button, and authorize.</li></ol></div>';
-    return;
-  }
-
   var t = window.TrelloPowerUp.iframe({ appKey: APP_KEY, appName: APP_NAME });
   themeWithRetries(t);
   app.className = 'dash';
@@ -773,11 +770,32 @@ function initAuthReturn(){
 
 /* ===================================================================== */
 
-var mode = new URLSearchParams(window.location.search).get('mode') || 'connector';
-if      (mode === 'panel')      initPanel();
-else if (mode === 'dashboard')  initDashboard();
-else if (mode === 'authreturn') initAuthReturn();
-else                            initConnector();
+/* =====================================================================
+   BOOT — guard against non-Trello contexts (bare URL in a browser) and
+   slow CDN loads before touching window.TrelloPowerUp.
+   ===================================================================== */
+
+function boot(){
+  var mode = new URLSearchParams(window.location.search).get('mode') || 'connector';
+
+  /* authreturn runs top-level by design and never touches TrelloPowerUp */
+  if (mode === 'authreturn') return initAuthReturn();
+
+  var framed = (window.self !== window.top);
+  var attempts = 0;
+  (function go(){
+    var hasTrello = (typeof window.TrelloPowerUp !== 'undefined');
+    if (!hasTrello && framed && attempts++ < 20) return setTimeout(go, 150); // CDN still loading
+    if (!framed || !hasTrello){
+      if (framed && !hasTrello) console.error('[TF-Plan] power-up.min.js did not load — check network/extensions.');
+      return showSetup();   // opened directly in a browser: show setup info instead of throwing
+    }
+    if      (mode === 'panel')     initPanel();
+    else if (mode === 'dashboard') initDashboard();
+    else                           initConnector();
+  })();
+}
+boot();
 </script>
 </body>
 </html>
