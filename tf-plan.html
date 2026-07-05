@@ -66,7 +66,7 @@
                         movedTs, status } ]  (newest first, capped)
    ===================================================================== */
 
-var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821'; // https://trello.com/power-ups/admin -> your Power-Up -> API key
+var APP_KEY  = 'PASTE_YOUR_TRELLO_API_KEY_HERE'; // https://trello.com/power-ups/admin -> your Power-Up -> API key
 var APP_NAME = 'TF-Plan';
 
 var SCAN_INTERVAL_MS = 15000;   // how often the open board checks for expired timers
@@ -77,7 +77,7 @@ var LOG_CAP          = 50;
 var CLIENT_ID = 'c-' + Math.random().toString(36).slice(2, 10);
 
 var GRAY_ICON = 'https://cdn.glitch.global/3b785fd6-6068-4b6a-b6e3-2b6b7e0a94d7/clock.svg'; // swap for your hosted TF icon
-// If you host an icon next to this file, use: var GRAY_ICON = location.origin + location.pathname.replace(/index\.html.*/,'') + 'icon.svg';
+// If you host an icon next to this file, use: var GRAY_ICON = location.origin + location.pathname.replace(/tf-plan\.html.*/,'') + 'icon.svg';
 
 function fmtRemaining(ms){
   if (ms <= 0) return 'now';
@@ -235,7 +235,7 @@ function initConnector(){
         icon: { light: GRAY_ICON, dark: GRAY_ICON },
         text: 'TF-Plan',
         callback: function(t){
-          return t.popup({ title:'TF-Plan', url:'./index.html?mode=dashboard', height:420 });
+          return t.popup({ title:'TF-Plan', url:'./tf-plan.html?mode=dashboard', height:420 });
         }
       }];
     },
@@ -246,7 +246,7 @@ function initConnector(){
         icon: GRAY_ICON,
         text: 'TF-Plan Timer',
         callback: function(t){
-          return t.popup({ title:'TF-Plan Timer', url:'./index.html?mode=editor', height:330 });
+          return t.popup({ title:'TF-Plan Timer', url:'./tf-plan.html?mode=editor', height:330 });
         }
       }];
     },
@@ -286,7 +286,7 @@ function initConnector(){
         return {
           title: 'TF-Plan',
           icon: GRAY_ICON,
-          content: { type:'iframe', url: t.signUrl('./index.html?mode=summary'), height: 120 }
+          content: { type:'iframe', url: t.signUrl('./tf-plan.html?mode=summary'), height: 120 }
         };
       });
     }
