@@ -75,6 +75,50 @@ var CLAIM_SETTLE_MS  = 900;     // wait after writing a claim before confirming 
 var LOG_CAP          = 50;
 
 var CLIENT_ID = 'c-' + Math.random().toString(36).slice(2, 10);
+var TOKEN_KEY = 'tfplan_token_' + APP_KEY;
+
+/* Token is stored in localStorage of THIS origin within the trello.com
+   partition, so the connector, editor, and dashboard iframes all share it.
+   The authorize return window (top-level, different partition) hands the
+   token back via postMessage instead of writing storage directly. */
+function getStoredToken(){
+  try { return localStorage.getItem(TOKEN_KEY); } catch(e){ return null; }
+}
+function storeToken(tok){
+  try { localStorage.setItem(TOKEN_KEY, tok); } catch(e){}
+}
+function clearToken(){
+  try { localStorage.removeItem(TOKEN_KEY); } catch(e){}
+}
+function beginAuthorize(onDone){
+  var returnUrl = location.origin + location.pathname + '?mode=authreturn';
+  var url = 'https://trello.com/1/authorize' +
+            '?expiration=never&name=' + encodeURIComponent(APP_NAME) +
+            '&scope=read,write&response_type=token&callback_method=fragment' +
+            '&key=' + APP_KEY +
+            '&return_url=' + encodeURIComponent(returnUrl);
+  window.open(url, 'tfplanauth', 'width=580,height=720');
+
+  function finish(tok){
+    window.removeEventListener('message', onMsg);
+    clearInterval(pollId);
+    storeToken(tok);
+    if (onDone) onDone(tok);
+  }
+  function onMsg(ev){
+    if (ev.origin !== location.origin) return;
+    if (!ev.data || ev.data.type !== 'tfplan-token' || !ev.data.token) return;
+    finish(ev.data.token);
+  }
+  window.addEventListener('message', onMsg);
+  // fallback for browsers without storage partitioning, where the return
+  // window's own localStorage write IS visible to this iframe
+  var pollId = setInterval(function(){
+    var tok = getStoredToken();
+    if (tok) finish(tok);
+  }, 2000);
+  setTimeout(function(){ clearInterval(pollId); window.removeEventListener('message', onMsg); }, 180000);
+}
 
 var GRAY_ICON = 'https://cdn.glitch.global/3b785fd6-6068-4b6a-b6e3-2b6b7e0a94d7/clock.svg'; // swap for your hosted TF icon
 // If you host an icon next to this file, use: var GRAY_ICON = location.origin + location.pathname.replace(/tf-plan\.html.*/,'') + 'icon.svg';
@@ -138,18 +182,15 @@ function scanAndMove(){
       });
       if (!dueIds.length) return null;
 
-      var token;
-      try { token = t.getRestApi().getToken(); } catch(err){ token = Promise.resolve(null); }
-      return Promise.resolve(token).then(function(tok){
-        if (!tok){
-          console.warn('[TF-Plan] timers are due but this client is not authorized — open TF-Plan dashboard and authorize.');
-          return null;
-        }
-        // process sequentially to keep index writes orderly
-        return dueIds.reduce(function(chain, cardId){
-          return chain.then(function(){ return moveOne(t, cardId, tok); });
-        }, Promise.resolve());
-      });
+      var tok = getStoredToken();
+      if (!tok){
+        console.warn('[TF-Plan] timers are due but this client is not authorized — open TF-Plan dashboard and authorize.');
+        return null;
+      }
+      // process sequentially to keep index writes orderly
+      return dueIds.reduce(function(chain, cardId){
+        return chain.then(function(){ return moveOne(t, cardId, tok); });
+      }, Promise.resolve());
     })
     .catch(function(err){ console.warn('[TF-Plan] scan error', err); })
     .then(function(){ scanBusy = false; });
@@ -310,7 +351,7 @@ function initEditor(){
       t.get('board', 'shared', 'tfplan_index'),
       t.card('id', 'name', 'idList'),
       t.member('fullName'),
-      t.getRestApi().isAuthorized()
+      Promise.resolve(!!getStoredToken())
     ]).then(function(res){
       var lists = res[0], index = res[1] || {}, card = res[2],
           me = res[3], authed = res[4];
@@ -359,11 +400,7 @@ function initEditor(){
       app.innerHTML = html;
 
       var authBtn = document.getElementById('btnAuth');
-      if (authBtn) authBtn.onclick = function(){
-        t.getRestApi().authorize({ scope:'read,write', expiration:'never' })
-          .then(render)
-          .catch(function(){ /* user closed the window */ });
-      };
+      if (authBtn) authBtn.onclick = function(){ beginAuthorize(render); };
 
       var cancelBtn = document.getElementById('btnCancel');
       if (cancelBtn) cancelBtn.onclick = function(){
@@ -485,16 +522,18 @@ function initDashboard(){
   function render(){
     Promise.all([
       t.get('board', 'shared', 'tfplan_index'),
-      t.get('board', 'shared', 'tfplan_log'),
-      t.getRestApi().isAuthorized()
+      t.get('board', 'shared', 'tfplan_log')
     ]).then(function(res){
-      var index = res[0] || {}, log = res[1] || [], authed = res[2];
+      var index = res[0] || {}, log = res[1] || [];
+      var authed = !!getStoredToken();
       var ids = Object.keys(index).sort(function(a, b){ return index[a].endTs - index[b].endTs; });
       var html = '';
 
       html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
               '<span>Mover authorization: ' +
-              (authed ? '<span class="pill ok">authorized</span>' : '<span class="pill bad">not authorized</span>') +
+              (authed ? '<span class="pill ok">authorized</span><span id="authAs" class="note" style="margin:0 0 0 6px"></span>' +
+                        ' <a href="#" id="deauth" style="font-size:11px;color:var(--tf-red)">de-authorize</a>'
+                      : '<span class="pill bad">not authorized</span>') +
               '</span></div>';
       if (!authed){
         html += '<button class="tf warn" id="btnAuth" style="margin-top:0">Authorize this browser to move cards</button>' +
@@ -533,10 +572,27 @@ function initDashboard(){
       app.innerHTML = html;
 
       var authBtn = document.getElementById('btnAuth');
-      if (authBtn) authBtn.onclick = function(){
-        t.getRestApi().authorize({ scope:'read,write', expiration:'never' })
-          .then(render).catch(function(){});
+      if (authBtn) authBtn.onclick = function(){ beginAuthorize(render); };
+
+      var deauth = document.getElementById('deauth');
+      if (deauth) deauth.onclick = function(ev){
+        ev.preventDefault();
+        clearToken();
+        render();
       };
+
+      // show which account this browser's moves will attribute to
+      var authAs = document.getElementById('authAs');
+      if (authAs && authed){
+        fetch('https://api.trello.com/1/members/me?fields=fullName&key=' + APP_KEY +
+              '&token=' + getStoredToken())
+          .then(function(r){
+            if (r.status === 401){ clearToken(); render(); return null; }
+            return r.ok ? r.json() : null;
+          })
+          .then(function(me){ if (me) authAs.textContent = 'as ' + me.fullName; })
+          .catch(function(){});
+      }
       Array.prototype.forEach.call(app.querySelectorAll('[data-cancel]'), function(a){
         a.onclick = function(ev){
           ev.preventDefault();
@@ -555,13 +611,38 @@ function initDashboard(){
   t.render(render);
 }
 
+/* =====================================================================
+   AUTH RETURN — top-level window Trello redirects to after the user
+   clicks Allow. Token arrives in the URL fragment; hand it back to the
+   opener iframe via postMessage (partition-proof), write localStorage as
+   a fallback for non-partitioned browsers, then close.
+   ===================================================================== */
+
+function initAuthReturn(){
+  var app = document.getElementById('app');
+  var m = window.location.hash.match(/token=([0-9a-fA-F]+)/);
+  if (m && m[1]){
+    storeToken(m[1]); // fallback path
+    if (window.opener){
+      try { window.opener.postMessage({ type:'tfplan-token', token:m[1] }, location.origin); } catch(e){}
+    }
+    app.innerHTML = '<h2>TF-Plan authorized ✓</h2>' +
+                    '<p class="note" style="font-size:13px">This window will close itself. If it doesn\'t, close it and return to Trello.</p>';
+    setTimeout(function(){ window.close(); }, 1200);
+  } else {
+    app.innerHTML = '<h2>Authorization did not complete</h2>' +
+                    '<p class="note" style="font-size:13px">No token was returned. Close this window and try Authorize again.</p>';
+  }
+}
+
 /* ===================================================================== */
 
 var mode = new URLSearchParams(window.location.search).get('mode') || 'connector';
-if      (mode === 'editor')    initEditor();
-else if (mode === 'summary')   initSummary();
-else if (mode === 'dashboard') initDashboard();
-else                           initConnector();
+if      (mode === 'editor')     initEditor();
+else if (mode === 'summary')    initSummary();
+else if (mode === 'dashboard')  initDashboard();
+else if (mode === 'authreturn') initAuthReturn();
+else                            initConnector();
 </script>
 </body>
 </html>
