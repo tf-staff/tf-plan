@@ -35,37 +35,40 @@
 
   #app{padding:2px 4px 6px}
 
-  .head{display:flex; align-items:center; gap:9px; margin-bottom:6px}
-  .title{display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13.5px; color:var(--head)}
-  .title svg{display:block}
+  .head{display:flex; align-items:center; gap:9px; margin-bottom:4px}
+  .seg{display:inline-flex; background:var(--subtle); border-radius:6px; padding:2px; gap:2px}
+  .seg button{appearance:none; border:0; background:transparent; color:var(--dim); cursor:pointer;
+    font:inherit; font-size:12px; font-weight:600; padding:4px 11px; border-radius:5px}
+  .seg button[aria-pressed="true"]{background:var(--blue); color:var(--btn-text)}
+  .seg button:focus-visible{outline:2px solid var(--blue); outline-offset:1px}
   .savechip{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
   .savechip.ok{color:var(--green);border-color:rgba(75,206,151,.45)}
   .savechip.err{color:var(--red);border-color:rgba(248,113,104,.45)}
   .savechip[hidden]{display:none}
-  .head-right{margin-left:auto; display:flex; align-items:center; gap:8px}
+  .push{margin-left:auto}
 
-  .lbl{font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; font-weight:700; margin:10px 0 5px}
-  .lbl:first-child{margin-top:2px}
+  .lbl{font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; font-weight:700; margin:9px 0 5px}
+  .hintline{font-size:11px; color:var(--dimmer); margin-top:4px}
 
-  select.min,input.min{width:100%; font:inherit; font-size:12.5px; padding:6px 8px;
+  select.min,input.min{font:inherit; font-size:12.5px; padding:6px 8px;
     color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:5px}
-  select.min{appearance:none; -webkit-appearance:none; padding-right:26px; cursor:pointer;
+  select.min{width:100%; appearance:none; -webkit-appearance:none; padding-right:26px; cursor:pointer;
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 3l3 3 3-3' stroke='%239fadbc' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
     background-repeat:no-repeat; background-position:right 9px center}
   .min::placeholder{color:var(--dimmer)}
   .min:focus{outline:0; border-color:var(--blue)}
-  input.min{text-align:right}
 
-  .quick{display:flex; gap:4px}
+  /* duration row: 4 presets + inline h/m custom cells */
+  .quick{display:flex; gap:4px; align-items:stretch}
   .quick button{appearance:none; cursor:pointer; font:inherit; font-weight:600; font-size:12px;
     color:var(--text); background:var(--subtle); border:1px solid transparent; border-radius:5px; padding:7px 0; flex:1 1 0; min-width:0}
   .quick button:hover{background:var(--subtle-h)}
   .quick button:active{transform:translateY(1px)}
   .quick button[aria-pressed="true"]{background:var(--blue); color:var(--btn-text)}
-
-  .customrow{display:flex; gap:6px; margin-top:6px}
-  .customrow input.min{flex:1 1 auto}
-  .customrow select.min{flex:0 0 96px; width:96px}
+  .quick .cust{flex:0 0 46px; display:flex; align-items:center; position:relative}
+  .quick .cust input{width:100%; height:100%; text-align:right; padding:6px 18px 6px 4px; font-size:12px}
+  .quick .cust .u{position:absolute; right:6px; font-size:11px; color:var(--dimmer); pointer-events:none}
+  .quick .cust input:focus + .u{color:var(--blue)}
 
   .go{appearance:none; cursor:pointer; font:inherit; font-weight:700; font-size:12.5px; width:100%;
     color:var(--btn-text); background:var(--blue); border:0; border-radius:6px; padding:8px 0; margin-top:10px;
@@ -75,7 +78,7 @@
   .go:disabled{opacity:.4; cursor:not-allowed; filter:none}
   .go svg{display:block}
 
-  .active-timer{background:var(--blue-soft); border:1px solid var(--blue-edge); border-radius:7px; padding:10px 12px 9px}
+  .active-timer{background:var(--blue-soft); border:1px solid var(--blue-edge); border-radius:7px; padding:10px 12px 10px; margin-top:2px}
   .at-count{font-size:22px; font-weight:800; color:var(--head); font-variant-numeric:tabular-nums; line-height:1.15;
     display:flex; align-items:center; gap:8px}
   .at-count svg{display:block; flex:0 0 auto}
@@ -83,27 +86,20 @@
   .at-dest{font-size:12.5px; color:var(--text); margin-top:3px}
   .at-dest b{color:var(--head)}
   .at-meta{font-size:11.5px; color:var(--dimmer); margin-top:2px; font-variant-numeric:tabular-nums}
-  .at-row{display:flex; align-items:center; margin-top:7px}
+  .pb-row{display:flex; align-items:center; gap:8px; margin-top:9px}
+  .pbar{flex:1 1 auto; height:6px; background:var(--subtle-h); border-radius:999px; overflow:hidden}
+  .pfill{height:100%; width:100%; background:var(--blue); border-radius:999px; transition:width 1s linear}
+  .pfill.warn{background:var(--yellow)}
+  .pfill.due{background:var(--red); transition:none}
+  .pb-total{flex:0 0 auto; font-size:11px; color:var(--dimmer); font-variant-numeric:tabular-nums}
+  .at-row{display:flex; align-items:center; margin-top:6px}
   .link{appearance:none; border:0; background:transparent; cursor:pointer; color:var(--dim);
     font:inherit; font-size:12px; font-weight:600; padding:4px 7px; border-radius:5px}
   .link:hover{background:var(--subtle); color:var(--text)}
   .link.danger{color:var(--red)}
   .link.danger:hover{background:var(--red-soft)}
-  .link.push{margin-left:auto}
 
-  .hist{margin-top:10px; border-top:1px solid var(--line)}
-  .hist-lbl{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--dimmer); font-weight:700; padding:7px 2px 3px}
-  .he{display:flex; gap:8px; align-items:center; padding:4px 2px; font-size:12px; border-top:1px solid var(--line)}
-  .he:nth-child(2){border-top:0}
-  .he .ts{color:var(--dimmer); flex:0 0 62px; display:flex; flex-direction:column; line-height:1.2; font-variant-numeric:tabular-nums}
-  .he .ts .tsd{font-size:10px}
-  .he .ts .tst{font-size:11px}
-  .he .hn{flex:1 1 auto; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .he .hn b{color:var(--text); font-weight:600}
-  .he .hn small{color:var(--dimmer); margin-left:5px}
-  .empty{font-size:12px; color:var(--dimmer); padding:6px 2px}
-
-  /* dashboard-only */
+  /* dashboard */
   .dash{padding:2px 2px 6px}
   .auth-row{display:flex; align-items:center; gap:8px; margin:2px 0 4px}
   .auth-row .who{font-size:11.5px; color:var(--dimmer)}
@@ -114,6 +110,16 @@
   td .sub{font-size:11px; color:var(--dimmer)}
   .cd{font-variant-numeric:tabular-nums; white-space:nowrap}
   .cd.due{color:var(--red); font-weight:700}
+  .hist{margin-top:2px}
+  .he{display:flex; gap:8px; align-items:center; padding:4px 2px; font-size:12px; border-top:1px solid var(--line)}
+  .he:first-child{border-top:0}
+  .he .ts{color:var(--dimmer); flex:0 0 62px; display:flex; flex-direction:column; line-height:1.2; font-variant-numeric:tabular-nums}
+  .he .ts .tsd{font-size:10px}
+  .he .ts .tst{font-size:11px}
+  .he .hn{flex:1 1 auto; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .he .hn b{color:var(--text); font-weight:600}
+  .he .hn small{color:var(--dimmer); margin-left:5px}
+  .empty{font-size:12px; color:var(--dimmer); padding:6px 2px}
 
   .setup{max-width:560px; margin:26px auto; background:var(--panel); border-radius:10px; padding:16px 20px; color:var(--text)}
   .setup h2{display:flex; align-items:center; gap:8px; font-size:15px; color:var(--head); margin:0 0 8px}
@@ -129,19 +135,25 @@
    ---------------------------------------------------------------------
    Chassis modes (?mode=):
      connector   — TrelloPowerUp.initialize + board scan loop (default)
-     panel       — persistent card-back section: set/cancel timers, history
+     panel       — persistent card-back section (the interface)
      dashboard   — board popup: authorization, all timers, move log
      authreturn  — top-level window Trello redirects to after Allow
    ---------------------------------------------------------------------
    Data model (board-level shared data, single source of truth):
-     tfplan_index : { [cardId]: { cardName, destListId, destListName,
-                                  startTs, endTs, durationMin, setByName,
-                                  claimedBy?, claimedAt? } }
-     tfplan_log   : [ { cardId, cardName, destListName, setByName,
-                        movedTs } ]  (newest first, capped)
+     tfplan_index : { [cardId]: {
+         v:3, mode:'move'|'boomerang'|'2step',
+         cardName, setByName, createdTs, durationMin,
+         stages:[ { destListId, destListName, at, verb }, ... ],
+         claimedBy?, claimedAt? } }
+       stages execute front-to-back; a stage is due when at <= now.
+       move      : [ {dest, at: now+d} ]
+       boomerang : [ {dest, at: now}, {origin, at: now+d, verb:'returns to'} ]
+       2step     : [ {A, at: now}, {B, at: now+d} ]
+     tfplan_log   : [ { cardId, cardName, destListName, setByName, movedTs } ]
+   All moves land at the TOP of the destination column (pos=top).
    ===================================================================== */
 
-var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
+var APP_KEY  = 'PASTE_YOUR_TRELLO_API_KEY_HERE';
 var APP_NAME = 'TF-Plan';
 
 var SCAN_INTERVAL_MS = 15000;
@@ -162,12 +174,12 @@ function clockSvgMarkup(size, color){
 function clockDataUri(color){
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(clockSvgMarkup(16, color));
 }
-var ICON_LIGHT_UI = clockDataUri('#42526e');  // shown on light chrome
-var ICON_DARK_UI  = clockDataUri('#e2e3e5');  // shown on dark chrome
-var ICON_NEUTRAL  = clockDataUri('#96999e');  // single-icon slots (card-back section)
+var ICON_LIGHT_UI = clockDataUri('#42526e');
+var ICON_DARK_UI  = clockDataUri('#e2e3e5');
+var ICON_NEUTRAL  = clockDataUri('#96999e');
 function inlineClock(size){ return clockSvgMarkup(size || 14, 'currentColor'); }
 
-/* ----- token plumbing (partition-proof, see beginAuthorize) ----------- */
+/* ----- token plumbing (partition-proof; see beginAuthorize) ----------- */
 function getStoredToken(){
   try { return localStorage.getItem(TOKEN_KEY); } catch(e){ return null; }
 }
@@ -240,6 +252,25 @@ function esc(s){
 }
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 
+/* normalize a v2 entry (single dest/endTs) into the v3 staged shape */
+function normEntry(e){
+  if (e && !e.stages && e.destListId){
+    return {
+      v: 3, mode: 'move',
+      cardName: e.cardName, setByName: e.setByName,
+      createdTs: e.startTs || (e.endTs - (e.durationMin || 0) * 60000),
+      durationMin: e.durationMin,
+      stages: [{ destListId: e.destListId, destListName: e.destListName, at: e.endTs, verb: 'moves to' }],
+      claimedBy: e.claimedBy, claimedAt: e.claimedAt
+    };
+  }
+  return e;
+}
+function pendingStage(e){
+  e = normEntry(e);
+  return (e && e.stages && e.stages.length) ? e.stages[0] : null;
+}
+
 /* theme detection — Trello sets data-color-mode on <html>, sometimes late */
 function detectTheme(t){
   try{
@@ -259,10 +290,97 @@ function themeWithRetries(t){
 }
 
 /* =====================================================================
+   STAGE EXECUTION — shared by the connector scan loop and the panel
+   (for instant first hops when the setting browser is authorized).
+   Claim protocol: write claim -> settle -> confirm -> act. First writer
+   wins; stale claims (dead client) are stolen after CLAIM_STALE_MS.
+   ===================================================================== */
+
+function moveStage(t, cardId, token){
+  var executed;   // stage we ended up executing (for the log)
+  var entrySnap;
+  return t.get('board', 'shared', 'tfplan_index').then(function(index){
+    index = index || {};
+    var e = normEntry(index[cardId]);
+    if (!e) return Promise.reject('gone');
+    var st = pendingStage(e);
+    if (!st || st.at > Date.now()) return Promise.reject('not-due');
+    if (e.claimedBy && e.claimedBy !== CLIENT_ID &&
+        (Date.now() - (e.claimedAt || 0)) < CLAIM_STALE_MS) return Promise.reject('claimed-elsewhere');
+    e.claimedBy = CLIENT_ID;
+    e.claimedAt = Date.now();
+    index[cardId] = e;
+    return t.set('board', 'shared', 'tfplan_index', index);
+  })
+  .then(function(){ return sleep(CLAIM_SETTLE_MS); })
+  .then(function(){ return t.get('board', 'shared', 'tfplan_index'); })
+  .then(function(index){
+    index = index || {};
+    var e = normEntry(index[cardId]);
+    if (!e || e.claimedBy !== CLIENT_ID) return Promise.reject('lost-claim');
+    entrySnap = e;
+    executed = e.stages[0];
+    var url = 'https://api.trello.com/1/cards/' + cardId +
+              '?idList=' + encodeURIComponent(executed.destListId) +
+              '&pos=top' +
+              '&key=' + APP_KEY + '&token=' + token;
+    return fetch(url, { method:'PUT' }).then(function(resp){
+      if (!resp.ok) return Promise.reject('move failed: HTTP ' + resp.status);
+      return resp.json();
+    });
+  })
+  .then(function(){
+    /* shift the executed stage; drop the entry when the sequence is done */
+    return t.get('board', 'shared', 'tfplan_index').then(function(index){
+      index = index || {};
+      var e = normEntry(index[cardId]);
+      if (e){
+        e.stages = (e.stages || []).slice(1);
+        if (e.stages.length){
+          delete e.claimedBy; delete e.claimedAt;
+          index[cardId] = e;
+        } else {
+          delete index[cardId];
+        }
+      }
+      return t.set('board', 'shared', 'tfplan_index', index);
+    });
+  })
+  .then(function(){
+    return t.get('board', 'shared', 'tfplan_log').then(function(log){
+      log = log || [];
+      log.unshift({
+        cardId: cardId,
+        cardName: entrySnap.cardName,
+        destListName: executed.destListName,
+        setByName: entrySnap.setByName,
+        movedTs: Date.now()
+      });
+      if (log.length > LOG_CAP) log.length = LOG_CAP;
+      return t.set('board', 'shared', 'tfplan_log', log);
+    });
+  })
+  .then(function(){
+    console.log('[TF-Plan] moved card ' + cardId + ' -> ' + executed.destListName + ' (top)');
+  })
+  .catch(function(reason){
+    if (reason === 'gone' || reason === 'claimed-elsewhere' ||
+        reason === 'lost-claim' || reason === 'not-due') return;
+    console.warn('[TF-Plan] moveStage(' + cardId + '):', reason);
+    return t.get('board', 'shared', 'tfplan_index').then(function(index){
+      index = index || {};
+      var e = index[cardId];
+      if (e && e.claimedBy === CLIENT_ID){
+        delete e.claimedBy;
+        delete e.claimedAt;
+        return t.set('board', 'shared', 'tfplan_index', index);
+      }
+    });
+  });
+}
+
+/* =====================================================================
    CONNECTOR + SCAN LOOP
-   The connector iframe persists for the life of the board tab, so a
-   setInterval here is our "server". Capability callbacks hand us fresh
-   t contexts; we keep the latest one for the loop to use.
    ===================================================================== */
 
 var scanT = null;
@@ -288,8 +406,9 @@ function scanAndMove(){
     .then(function(index){
       index = index || {};
       var dueIds = Object.keys(index).filter(function(id){
-        var e = index[id];
-        if (!e || e.endTs > now) return false;
+        var e = normEntry(index[id]);
+        var st = pendingStage(e);
+        if (!st || st.at > now) return false;
         if (e.claimedBy && e.claimedBy !== CLIENT_ID && (now - (e.claimedAt || 0)) < CLAIM_STALE_MS) return false;
         return true;
       });
@@ -297,87 +416,19 @@ function scanAndMove(){
 
       var tok = getStoredToken();
       if (!tok){
-        console.warn('[TF-Plan] timers are due but this client is not authorized — open the TF-Plan board button and authorize.');
+        console.warn('[TF-Plan] stages are due but this client is not authorized — open the TF-Plan board button and authorize.');
         return null;
       }
       return dueIds.reduce(function(chain, cardId){
-        return chain.then(function(){ return moveOne(t, cardId, tok); });
+        return chain.then(function(){ return moveStage(t, cardId, tok); });
       }, Promise.resolve());
     })
     .catch(function(err){ console.warn('[TF-Plan] scan error', err); })
     .then(function(){ scanBusy = false; });
 }
 
-function moveOne(t, cardId, token){
-  var entry;
-  return t.get('board', 'shared', 'tfplan_index').then(function(index){
-    index = index || {};
-    entry = index[cardId];
-    if (!entry) return Promise.reject('gone');
-    if (entry.claimedBy && entry.claimedBy !== CLIENT_ID &&
-        (Date.now() - (entry.claimedAt || 0)) < CLAIM_STALE_MS) return Promise.reject('claimed-elsewhere');
-    entry.claimedBy = CLIENT_ID;
-    entry.claimedAt = Date.now();
-    index[cardId] = entry;
-    return t.set('board', 'shared', 'tfplan_index', index);
-  })
-  .then(function(){ return sleep(CLAIM_SETTLE_MS); })
-  .then(function(){ return t.get('board', 'shared', 'tfplan_index'); })
-  .then(function(index){
-    index = index || {};
-    var e = index[cardId];
-    if (!e || e.claimedBy !== CLIENT_ID) return Promise.reject('lost-claim');
-    var url = 'https://api.trello.com/1/cards/' + cardId +
-              '?idList=' + encodeURIComponent(e.destListId) +
-              '&key=' + APP_KEY + '&token=' + token;
-    return fetch(url, { method:'PUT' }).then(function(resp){
-      if (!resp.ok) return Promise.reject('move failed: HTTP ' + resp.status);
-      return resp.json();
-    });
-  })
-  .then(function(){
-    return t.get('board', 'shared', 'tfplan_index').then(function(index){
-      index = index || {};
-      delete index[cardId];
-      return t.set('board', 'shared', 'tfplan_index', index);
-    });
-  })
-  .then(function(){
-    return t.get('board', 'shared', 'tfplan_log').then(function(log){
-      log = log || [];
-      log.unshift({
-        cardId: cardId,
-        cardName: entry.cardName,
-        destListName: entry.destListName,
-        setByName: entry.setByName,
-        movedTs: Date.now()
-      });
-      if (log.length > LOG_CAP) log.length = LOG_CAP;
-      return t.set('board', 'shared', 'tfplan_log', log);
-    });
-  })
-  .then(function(){
-    console.log('[TF-Plan] moved card ' + cardId + ' -> ' + entry.destListName);
-  })
-  .catch(function(reason){
-    if (reason === 'gone' || reason === 'claimed-elsewhere' || reason === 'lost-claim') return;
-    console.warn('[TF-Plan] moveOne(' + cardId + '):', reason);
-    return t.get('board', 'shared', 'tfplan_index').then(function(index){
-      index = index || {};
-      if (index[cardId] && index[cardId].claimedBy === CLIENT_ID){
-        delete index[cardId].claimedBy;
-        delete index[cardId].claimedAt;
-        return t.set('board', 'shared', 'tfplan_index', index);
-      }
-    });
-  });
-}
-
-function estimatePanelHeight(entry, histCount){
-  var h = 34;                              // header row + padding
-  h += entry ? 118 : 208;                  // active box vs. destination+duration+start controls
-  if (histCount > 0) h += 30 + Math.min(histCount, 3) * 27;
-  return Math.min(420, h);
+function estimatePanelHeight(entry){
+  return entry ? 168 : 230;   // active box vs. mode seg + selects + duration + start
 }
 
 function initConnector(){
@@ -402,12 +453,13 @@ function initConnector(){
         return [{
           dynamic: function(t){
             return t.get('board', 'shared', 'tfplan_index').then(function(idx){
-              var e = idx && idx[t.getContext().card];
-              if (!e) return { refresh: 60 };
-              var rem = e.endTs - Date.now();
+              var e = idx && normEntry(idx[t.getContext().card]);
+              var st = pendingStage(e);
+              if (!st) return { refresh: 60 };
+              var rem = st.at - Date.now();
               return {
                 icon: ICON_DARK_UI,
-                text: (rem <= 0 ? 'moving…' : fmtRemaining(rem)) + ' → ' + e.destListName,
+                text: (rem <= 0 ? 'moving…' : fmtRemaining(rem)) + ' → ' + st.destListName,
                 color: rem <= 0 ? 'red' : (rem < 5 * 60000 ? 'yellow' : 'sky'),
                 refresh: 10
               };
@@ -421,29 +473,26 @@ function initConnector(){
     'card-back-section': function(t){
       ensureScanLoop(t);
       var cardId = t.getContext().card;
-      return Promise.all([
-        t.get('board', 'shared', 'tfplan_index').catch(function(){ return null; }),
-        t.get('board', 'shared', 'tfplan_log').catch(function(){ return null; })
-      ]).then(function(res){
-        var entry = (res[0] || {})[cardId] || null;
-        var histCount = (res[1] || []).filter(function(l){ return l.cardId === cardId; }).length;
-        return {
-          title: 'TF-Plan',
-          icon: ICON_NEUTRAL,
-          content: {
-            type: 'iframe',
-            url: t.signUrl('./tf-plan.html?mode=panel'),
-            height: estimatePanelHeight(entry, histCount)
-          }
-        };
-      });
+      return t.get('board', 'shared', 'tfplan_index').catch(function(){ return null; })
+        .then(function(index){
+          var entry = (index || {})[cardId] || null;
+          return {
+            title: 'TF-Plan',
+            icon: ICON_NEUTRAL,
+            content: {
+              type: 'iframe',
+              url: t.signUrl('./tf-plan.html?mode=panel'),
+              height: estimatePanelHeight(entry)
+            }
+          };
+        });
     }
 
   }, { appKey: APP_KEY, appName: APP_NAME });
 }
 
 /* =====================================================================
-   PANEL — persistent card-back section (the primary interface)
+   PANEL — persistent card-back section (the interface)
    ===================================================================== */
 
 function initPanel(){
@@ -452,14 +501,14 @@ function initPanel(){
 
   var app = document.getElementById('app');
   var cardId = t.getContext().card;
+  var uiMode = 'boomerang';     // 'move' | 'boomerang' | '2step' — default Boomerang
   var selMinutes = 60;          // preset selection
-  var cache = { entry: undefined, hist: [], lists: [], card: null, me: null };
-  var tickId = null;
+  var cache = { entry: undefined, lists: [], card: null, me: null };
 
   function chip(txt, cls, ttl){
     var c = document.getElementById('chip');
     if (!c) return;
-    c.hidden = false; c.textContent = txt; c.className = 'savechip' + (cls ? ' ' + cls : '');
+    c.hidden = false; c.textContent = txt; c.className = 'savechip push' + (cls ? ' ' + cls : '');
     if (ttl) setTimeout(function(){ c.hidden = true; }, ttl);
   }
 
@@ -470,79 +519,105 @@ function initPanel(){
   function load(){
     return Promise.all([
       t.get('board', 'shared', 'tfplan_index').catch(function(){ return null; }),
-      t.get('board', 'shared', 'tfplan_log').catch(function(){ return null; }),
       t.lists('id', 'name'),
       t.card('id', 'name', 'idList'),
       t.member('fullName')
     ]).then(function(res){
-      var newEntry = (res[0] || {})[cardId] || null;
-      cache.hist  = (res[1] || []).filter(function(l){ return l.cardId === cardId; }).slice(0, 3);
-      cache.lists = res[2] || [];
-      cache.card  = res[3];
-      cache.me    = res[4];
+      var newEntry = normEntry((res[0] || {})[cardId] || null);
+      cache.lists = res[1] || [];
+      cache.card  = res[2];
+      cache.me    = res[3];
       var changed = JSON.stringify(newEntry) !== JSON.stringify(cache.entry);
       cache.entry = newEntry;
       return changed;
     });
   }
 
-  function histHtml(){
-    if (!cache.hist.length) return '';
-    var h = '<div class="hist"><div class="hist-lbl">Recent moves</div>';
-    cache.hist.forEach(function(l){
-      var ts = fmtTsCol(l.movedTs);
-      h += '<div class="he"><span class="ts"><span class="tsd">' + ts.d + '</span><span class="tst">' + ts.t + '</span></span>' +
-           '<span class="hn">→ <b>' + esc(l.destListName) + '</b><small>set by ' + esc(l.setByName || '—') + '</small></span></div>';
+  function listOptions(id, excludeCurrent, hintCurrent){
+    var html = '<select class="min" id="' + id + '">';
+    var pickedFirst = false;
+    cache.lists.forEach(function(l){
+      var cur = (l.id === (cache.card && cache.card.idList));
+      var dis = excludeCurrent && cur;
+      var sel = (!dis && !pickedFirst) ? ' selected' : '';
+      if (sel) pickedFirst = true;
+      html += '<option value="' + l.id + '"' + (dis ? ' disabled' : sel) + '>' +
+              esc(l.name) + (cur && hintCurrent ? ' (current)' : '') + '</option>';
     });
-    return h + '</div>';
+    return html + '</select>';
   }
 
   function render(){
     var e = cache.entry;
-    var html = '<div class="head"><span class="title">' + inlineClock(15) + 'TF-Plan</span>' +
-               '<span class="savechip" id="chip" hidden></span></div>';
+    var html = '';
 
     if (e){
-      var rem = e.endTs - Date.now();
+      var st = pendingStage(e);
+      var rem = st ? st.at - Date.now() : 0;
+      var totalMs = (e.durationMin || 0) * 60000;
+      var pct = totalMs > 0 ? Math.max(0, Math.min(100, (rem / totalMs) * 100)) : 0;
       html += '<div class="active-timer">' +
-              '<div class="at-count" id="atCount">' + inlineClock(18) +
+              '<div class="at-count">' + inlineClock(18) +
                 '<span class="num' + (rem <= 0 ? ' due' : '') + '" id="atNum">' +
                 (rem <= 0 ? 'moving…' : fmtCountdown(rem)) + '</span></div>' +
-              '<div class="at-dest">moves to <b>' + esc(e.destListName) + '</b></div>' +
-              '<div class="at-meta num">at ' + fmtClock(e.endTs) + ' · set by ' + esc(e.setByName || '—') + '</div>' +
-              '<div class="at-row"><button class="link danger push" id="btnCancel">Cancel timer</button></div>' +
+              '<div class="at-dest">' + esc(st ? (st.verb || 'moves to') : '') + ' <b>' + esc(st ? st.destListName : '') + '</b></div>' +
+              '<div class="at-meta num">at ' + (st ? fmtClock(st.at) : '') + ' · set by ' + esc(e.setByName || '—') + '</div>' +
+              '<div class="pb-row"><div class="pbar"><div class="pfill" id="pfill" style="width:' + pct.toFixed(2) + '%"></div></div>' +
+              '<span class="pb-total" id="pbTotal">' + fmtRemaining(totalMs) + '</span></div>' +
+              '<div class="at-row"><span class="savechip push" id="chip" hidden></span>' +
+              '<button class="link danger" id="btnCancel" style="margin-left:8px">Cancel</button></div>' +
               '</div>';
     } else {
-      html += '<div class="lbl">Destination</div><select class="min" id="dest">';
-      var pickedFirst = false;
-      cache.lists.forEach(function(l){
-        var cur = (l.id === (cache.card && cache.card.idList));
-        var sel = (!cur && !pickedFirst) ? ' selected' : '';
-        if (sel) pickedFirst = true;
-        html += '<option value="' + l.id + '"' + (cur ? ' disabled' : sel) + '>' +
-                esc(l.name) + (cur ? ' (current)' : '') + '</option>';
-      });
-      html += '</select>';
+      html += '<div class="head"><div class="seg" id="modeSeg" role="group" aria-label="Timer mode">' +
+              '<button data-mode="move" aria-pressed="' + (uiMode === 'move') + '">Move</button>' +
+              '<button data-mode="boomerang" aria-pressed="' + (uiMode === 'boomerang') + '">Boomerang</button>' +
+              '<button data-mode="2step" aria-pressed="' + (uiMode === '2step') + '">2-Step</button>' +
+              '</div><span class="savechip push" id="chip" hidden></span></div>';
+
+      if (uiMode === 'move'){
+        html += '<div class="lbl">Destination</div>' + listOptions('selA', true, true) +
+                '<div class="hintline">Card stays put, then moves when the timer ends.</div>';
+      } else if (uiMode === 'boomerang'){
+        html += '<div class="lbl">Send to</div>' + listOptions('selA', true, true) +
+                '<div class="hintline">Card goes now, and returns here when the timer ends.</div>';
+      } else {
+        html += '<div class="lbl">First column (now)</div>' + listOptions('selA', true, true) +
+                '<div class="lbl">Then to (after timer)</div>' + listOptions('selB', false, true);
+      }
 
       html += '<div class="lbl">Duration</div><div class="quick" id="presets">';
-      [[15,'15m'],[30,'30m'],[60,'1h'],[120,'2h'],[240,'4h'],[480,'8h']].forEach(function(p){
+      [[30,'30m'],[60,'1h'],[120,'2h'],[240,'4h']].forEach(function(p){
         html += '<button data-min="' + p[0] + '" aria-pressed="' + (p[0] === selMinutes) + '">' + p[1] + '</button>';
       });
-      html += '</div>';
-      html += '<div class="customrow">' +
-              '<input class="min num" type="number" id="customVal" min="1" placeholder="custom">' +
-              '<select class="min" id="customUnit"><option value="1">minutes</option><option value="60">hours</option><option value="1440">days</option></select>' +
+      html += '<span class="cust"><input class="min num" type="number" id="custH" min="0" placeholder="–"><span class="u">h</span></span>' +
+              '<span class="cust"><input class="min num" type="number" id="custM" min="0" placeholder="–"><span class="u">m</span></span>' +
               '</div>';
+
       html += '<button class="go" id="btnStart">' + inlineClock(14) + 'Start timer</button>';
     }
 
-    html += histHtml();
     app.innerHTML = html;
     wire();
     fit();
   }
 
+  function customMinutes(){
+    var h = parseFloat((document.getElementById('custH') || {}).value);
+    var m = parseFloat((document.getElementById('custM') || {}).value);
+    var hv = (!isNaN(h) && h > 0) ? h : 0;
+    var mv = (!isNaN(m) && m > 0) ? m : 0;   // minutes may exceed 60 (90m == 1h 30m)
+    var total = hv * 60 + mv;
+    return total > 0 ? total : null;
+  }
+
   function wire(){
+    var seg = document.getElementById('modeSeg');
+    if (seg) seg.onclick = function(ev){
+      var b = ev.target.closest('button'); if (!b) return;
+      uiMode = b.getAttribute('data-mode');
+      render();
+    };
+
     var cancelBtn = document.getElementById('btnCancel');
     if (cancelBtn) cancelBtn.onclick = function(){
       chip('cancelling…');
@@ -553,84 +628,116 @@ function initPanel(){
       }).then(function(){
         cache.entry = null;
         render();
-        chip('cancelled', '', 2200);
-      }, function(){ chip('save failed', 'err', 3000); });
+      }, function(){ chip('failed', 'err', 3000); });
     };
 
     var presets = document.getElementById('presets');
     if (presets) presets.onclick = function(ev){
       var b = ev.target.closest('button'); if (!b) return;
       selMinutes = parseInt(b.getAttribute('data-min'), 10);
-      document.getElementById('customVal').value = '';
+      document.getElementById('custH').value = '';
+      document.getElementById('custM').value = '';
       Array.prototype.forEach.call(presets.querySelectorAll('button'), function(x){ x.setAttribute('aria-pressed', 'false'); });
       b.setAttribute('aria-pressed', 'true');
     };
-
-    var customVal = document.getElementById('customVal');
-    if (customVal) customVal.oninput = function(){
-      Array.prototype.forEach.call(document.querySelectorAll('#presets button'), function(x){ x.setAttribute('aria-pressed', 'false'); });
-    };
+    ['custH', 'custM'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.oninput = function(){
+        Array.prototype.forEach.call(document.querySelectorAll('#presets button'), function(x){ x.setAttribute('aria-pressed', 'false'); });
+      };
+    });
 
     var startBtn = document.getElementById('btnStart');
-    if (startBtn) startBtn.onclick = function(){
-      var destSel = document.getElementById('dest');
-      var destId = destSel.value;
-      var destName = destSel.options[destSel.selectedIndex].text.replace(/ \(current\)$/, '');
-      var cv = parseFloat(customVal.value);
-      var minutes = (!isNaN(cv) && cv > 0)
-        ? cv * parseInt(document.getElementById('customUnit').value, 10)
-        : selMinutes;
-      if (!destId || !minutes || destId === cache.card.idList) return;
-
-      chip('saving…');
-      var now = Date.now();
-      var newEntry = {
-        cardName: cache.card.name,
-        destListId: destId,
-        destListName: destName,
-        startTs: now,
-        endTs: now + minutes * 60000,
-        durationMin: minutes,
-        setByName: cache.me ? cache.me.fullName : null
-      };
-      t.get('board', 'shared', 'tfplan_index').then(function(idx){
-        idx = idx || {};
-        idx[cardId] = newEntry;
-        return t.set('board', 'shared', 'tfplan_index', idx);
-      }).then(function(){
-        cache.entry = newEntry;
-        render();
-        chip('timer set ✓', 'ok', 2200);
-      }, function(){ chip('save failed', 'err', 3000); });
-    };
+    if (startBtn) startBtn.onclick = onStart;
   }
 
-  /* 1s local countdown tick — text-only update, no relayout */
+  function onStart(){
+    var selA = document.getElementById('selA');
+    var selB = document.getElementById('selB');
+    var aId = selA ? selA.value : null;
+    var aName = selA ? selA.options[selA.selectedIndex].text.replace(/ \(current\)$/, '') : null;
+    var bId = selB ? selB.value : null;
+    var bName = selB ? selB.options[selB.selectedIndex].text.replace(/ \(current\)$/, '') : null;
+    var minutes = customMinutes() || selMinutes;
+    var curId = cache.card.idList;
+    var curName = (cache.lists.filter(function(l){ return l.id === curId; })[0] || {}).name || 'origin';
+
+    if (!minutes || !aId || aId === curId) return;
+    if (uiMode === '2step' && (!bId || bId === aId)){ chip('pick two different columns', 'err', 2600); return; }
+
+    var now = Date.now();
+    var stages;
+    if (uiMode === 'move'){
+      stages = [{ destListId: aId, destListName: aName, at: now + minutes * 60000, verb: 'moves to' }];
+    } else if (uiMode === 'boomerang'){
+      stages = [{ destListId: aId, destListName: aName, at: now, verb: 'moves to' },
+                { destListId: curId, destListName: curName, at: now + minutes * 60000, verb: 'returns to' }];
+    } else {
+      stages = [{ destListId: aId, destListName: aName, at: now, verb: 'moves to' },
+                { destListId: bId, destListName: bName, at: now + minutes * 60000, verb: 'then to' }];
+    }
+
+    var newEntry = {
+      v: 3, mode: uiMode,
+      cardName: cache.card.name,
+      setByName: cache.me ? cache.me.fullName : null,
+      createdTs: now,
+      durationMin: minutes,
+      stages: stages
+    };
+
+    chip('saving…');
+    t.get('board', 'shared', 'tfplan_index').then(function(idx){
+      idx = idx || {};
+      idx[cardId] = newEntry;
+      return t.set('board', 'shared', 'tfplan_index', idx);
+    }).then(function(){
+      cache.entry = newEntry;
+      render();
+      /* instant first hop if this browser is authorized; otherwise the
+         always-open machine's scan loop picks it up within ~15 s */
+      var tok = getStoredToken();
+      if (tok && stages[0].at <= Date.now()){
+        moveStage(t, cardId, tok).then(function(){ sync(); });
+      }
+    }, function(){ chip('save failed', 'err', 3000); });
+  }
+
+  /* 1s tick — countdown text + depleting progress bar, no relayout */
   function tick(){
     var e = cache.entry;
     if (!e) return;
-    var el = document.getElementById('atNum');
-    if (!el) return;
-    var rem = e.endTs - Date.now();
-    el.textContent = rem <= 0 ? 'moving…' : fmtCountdown(rem);
-    el.classList.toggle('due', rem <= 0);
+    var st = pendingStage(e);
+    var numEl = document.getElementById('atNum');
+    var barEl = document.getElementById('pfill');
+    if (!st || !numEl) return;
+    var rem = st.at - Date.now();
+    numEl.textContent = rem <= 0 ? 'moving…' : fmtCountdown(rem);
+    numEl.classList.toggle('due', rem <= 0);
+    if (barEl){
+      var totalMs = (e.durationMin || 0) * 60000;
+      var pct = totalMs > 0 ? Math.max(0, Math.min(100, (rem / totalMs) * 100)) : 0;
+      barEl.style.width = pct.toFixed(2) + '%';
+      barEl.classList.toggle('due', rem <= 0);
+      barEl.classList.toggle('warn', rem > 0 && pct < 10);
+    }
   }
 
-  /* periodic re-sync: catches external changes (timer set elsewhere,
-     move completed by the scan loop, cancel from the dashboard) */
+  /* periodic re-sync: catches external changes (stage executed by the
+     kiosk, timer set elsewhere, cancel from the dashboard) */
   function sync(){
     load().then(function(changed){ if (changed) render(); });
   }
 
   load().then(render);
   t.render(function(){ applyTheme(t); sync(); });
-  tickId = setInterval(tick, 1000);
+  setInterval(tick, 1000);
   setInterval(sync, 10000);
   [400, 1000, 2000].forEach(function(ms){ setTimeout(fit, ms); });
 }
 
 /* =====================================================================
-   DASHBOARD — board-button popup; setup instructions when standalone
+   DASHBOARD — board-button popup
    ===================================================================== */
 
 function showSetup(){
@@ -660,7 +767,10 @@ function initDashboard(){
     ]).then(function(res){
       var index = res[0] || {}, log = res[1] || [];
       var authed = !!getStoredToken();
-      var ids = Object.keys(index).sort(function(a, b){ return index[a].endTs - index[b].endTs; });
+      var ids = Object.keys(index).sort(function(a, b){
+        var sa = pendingStage(index[a]), sb = pendingStage(index[b]);
+        return (sa ? sa.at : 0) - (sb ? sb.at : 0);
+      });
       var html = '';
 
       html += '<div class="auth-row"><span class="lbl" style="margin:0">Mover</span>' +
@@ -678,13 +788,15 @@ function initDashboard(){
       if (!ids.length){
         html += '<div class="empty">None. Set one from the TF-Plan panel on any card.</div>';
       } else {
-        html += '<table><tr><th>Card</th><th>Moves to</th><th>In</th><th></th></tr>';
+        html += '<table><tr><th>Card</th><th>Next</th><th>In</th><th></th></tr>';
         ids.forEach(function(id){
-          var e = index[id];
-          var rem = e.endTs - Date.now();
+          var e = normEntry(index[id]);
+          var st = pendingStage(e);
+          var rem = st ? st.at - Date.now() : 0;
           html += '<tr>' +
-                  '<td><b>' + esc(e.cardName) + '</b><br><span class="sub">' + esc(e.setByName || '') + '</span></td>' +
-                  '<td>' + esc(e.destListName) + '</td>' +
+                  '<td><b>' + esc(e.cardName) + '</b><br><span class="sub">' + esc(e.setByName || '') +
+                    (e.mode && e.mode !== 'move' ? ' · ' + (e.mode === '2step' ? '2-step' : e.mode) : '') + '</span></td>' +
+                  '<td>' + esc(st ? ((st.verb || 'moves to') + ' ' + st.destListName) : '—') + '</td>' +
                   '<td class="cd' + (rem <= 0 ? ' due' : '') + '">' + (rem <= 0 ? 'due' : fmtRemaining(rem)) + '</td>' +
                   '<td><button class="link danger" data-cancel="' + id + '">cancel</button></td>' +
                   '</tr>';
@@ -696,7 +808,7 @@ function initDashboard(){
       if (!log.length){
         html += '<div class="empty">No moves logged yet.</div>';
       } else {
-        html += '<div class="hist" style="border-top:0;margin-top:0">';
+        html += '<div class="hist">';
         log.slice(0, 10).forEach(function(l){
           var ts = fmtTsCol(l.movedTs);
           html += '<div class="he"><span class="ts"><span class="tsd">' + ts.d + '</span><span class="tst">' + ts.t + '</span></span>' +
@@ -745,8 +857,6 @@ function initDashboard(){
 
 /* =====================================================================
    AUTH RETURN — top-level window Trello redirects to after Allow.
-   Token arrives in the URL fragment; hand it to the opener iframe via
-   postMessage (partition-proof), write localStorage as fallback, close.
    ===================================================================== */
 
 function initAuthReturn(){
@@ -768,27 +878,23 @@ function initAuthReturn(){
   }
 }
 
-/* ===================================================================== */
-
 /* =====================================================================
-   BOOT — guard against non-Trello contexts (bare URL in a browser) and
-   slow CDN loads before touching window.TrelloPowerUp.
+   BOOT — guard against non-Trello contexts and slow CDN loads
    ===================================================================== */
 
 function boot(){
   var mode = new URLSearchParams(window.location.search).get('mode') || 'connector';
 
-  /* authreturn runs top-level by design and never touches TrelloPowerUp */
   if (mode === 'authreturn') return initAuthReturn();
 
   var framed = (window.self !== window.top);
   var attempts = 0;
   (function go(){
     var hasTrello = (typeof window.TrelloPowerUp !== 'undefined');
-    if (!hasTrello && framed && attempts++ < 20) return setTimeout(go, 150); // CDN still loading
+    if (!hasTrello && framed && attempts++ < 20) return setTimeout(go, 150);
     if (!framed || !hasTrello){
       if (framed && !hasTrello) console.error('[TF-Plan] power-up.min.js did not load — check network/extensions.');
-      return showSetup();   // opened directly in a browser: show setup info instead of throwing
+      return showSetup();
     }
     if      (mode === 'panel')     initPanel();
     else if (mode === 'dashboard') initDashboard();
