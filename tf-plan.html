@@ -620,7 +620,7 @@ function initDashboard(){
 
 function initAuthReturn(){
   var app = document.getElementById('app');
-  var m = window.location.hash.match(/token=([0-9a-fA-F]+)/);
+  var m = window.location.hash.match(/[#&]token=([^&#?]+)/);
   if (m && m[1]){
     storeToken(m[1]); // fallback path
     if (window.opener){
