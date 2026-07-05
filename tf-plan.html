@@ -1,48 +1,123 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TF-Plan</title>
 <script src="https://p.trellocdn.com/power-up.min.js"></script>
-<link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
 <style>
-  :root{
-    --tf-navy:#022851;
-    --tf-gold:#FFBF00;
-    --tf-teal:#0E7E8E;
-    --tf-red:#B3001B;
-    --tf-gray:#5E6C84;
-    --tf-bg:#FFFFFF;
-    --tf-line:#DFE1E6;
+  /* ===== TF design language (matches TF-Recharge) ===================== */
+  :root, html[data-color-mode="dark"]{
+    --bg:#242528; --panel:#2b2c2f;
+    --subtle:rgba(255,255,255,.06); --subtle-h:rgba(255,255,255,.12);
+    --line:#46474b; --text:#cecfd2; --dim:#96999e; --dimmer:#85878c;
+    --head:#e2e3e5; --blue:#579dff; --green:#4bce97; --red:#f87168; --yellow:#f5cd47;
+    --btn-text:#1d2125; --blue-soft:rgba(87,157,255,.12); --blue-edge:rgba(87,157,255,.45);
+    --red-soft:rgba(248,113,104,.14);
   }
-  body{ margin:0; padding:10px 12px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; color:#172B4D; background:var(--tf-bg); }
-  h2{ font-size:14px; margin:0 0 8px; color:var(--tf-navy); }
-  h3{ font-size:12px; margin:14px 0 6px; color:var(--tf-gray); text-transform:uppercase; letter-spacing:.04em; }
-  label{ display:block; font-size:12px; font-weight:600; margin:10px 0 4px; color:var(--tf-navy); }
-  select,input[type=number]{ width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--tf-line); border-radius:3px; font-size:13px; }
-  .row{ display:flex; gap:8px; }
-  .row > *{ flex:1; }
-  button.tf{ width:100%; margin-top:12px; padding:8px 10px; border:none; border-radius:3px; font-size:13px; font-weight:600; cursor:pointer; }
-  button.tf.primary{ background:var(--tf-navy); color:#fff; }
-  button.tf.primary:hover{ background:#03356B; }
-  button.tf.danger{ background:#fff; color:var(--tf-red); border:1px solid var(--tf-red); }
-  button.tf.warn{ background:var(--tf-gold); color:var(--tf-navy); }
-  button.tf:disabled{ opacity:.5; cursor:default; }
-  .presets{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
-  .presets button{ flex:1 0 28%; padding:6px 0; border:1px solid var(--tf-line); background:#FAFBFC; border-radius:3px; font-size:12px; cursor:pointer; }
-  .presets button.sel{ background:var(--tf-navy); color:#fff; border-color:var(--tf-navy); }
-  .note{ font-size:11px; color:var(--tf-gray); margin-top:8px; line-height:1.4; }
-  .active-box{ border:1px solid var(--tf-teal); border-left:4px solid var(--tf-teal); border-radius:3px; padding:8px 10px; margin-bottom:6px; font-size:12px; line-height:1.5; }
-  .active-box .big{ font-size:16px; font-weight:700; color:var(--tf-navy); }
-  .pill{ display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:600; }
-  .pill.ok{ background:#E3FCEF; color:#006644; }
-  .pill.bad{ background:#FFEBE6; color:var(--tf-red); }
-  table{ width:100%; border-collapse:collapse; font-size:12px; }
-  th{ text-align:left; color:var(--tf-gray); font-weight:600; padding:4px 6px; border-bottom:2px solid var(--tf-line); }
-  td{ padding:5px 6px; border-bottom:1px solid var(--tf-line); vertical-align:top; }
-  .empty{ color:var(--tf-gray); font-size:12px; font-style:italic; padding:8px 0; }
-  #app{ min-height:40px; }
+  html[data-color-mode="light"]{
+    --bg:#ffffff; --panel:#ffffff;
+    --subtle:rgba(0,0,0,.05); --subtle-h:rgba(0,0,0,.10);
+    --line:#dcdfe4; --text:#292a2e; --dim:#6b6e76; --dimmer:#8b8f97;
+    --head:#1d2125; --blue:#1d7afc; --green:#22a06b; --red:#e2483d; --yellow:#b38600;
+    --btn-text:#ffffff; --blue-soft:rgba(29,122,252,.10); --blue-edge:rgba(29,122,252,.45);
+    --red-soft:rgba(226,72,61,.10);
+  }
+  *{box-sizing:border-box}
+  html{background:transparent}
+  html,body{margin:0}
+  body{background:transparent; color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px; -webkit-font-smoothing:antialiased; line-height:1.4; padding:0}
+  .num{font-variant-numeric:tabular-nums}
+  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  input[type=number]{-moz-appearance:textfield}
+
+  #app{padding:2px 4px 6px}
+
+  .head{display:flex; align-items:center; gap:9px; margin-bottom:6px}
+  .title{display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13.5px; color:var(--head)}
+  .title svg{display:block}
+  .savechip{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .savechip.ok{color:var(--green);border-color:rgba(75,206,151,.45)}
+  .savechip.err{color:var(--red);border-color:rgba(248,113,104,.45)}
+  .savechip[hidden]{display:none}
+  .head-right{margin-left:auto; display:flex; align-items:center; gap:8px}
+
+  .lbl{font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; font-weight:700; margin:10px 0 5px}
+  .lbl:first-child{margin-top:2px}
+
+  select.min,input.min{width:100%; font:inherit; font-size:12.5px; padding:6px 8px;
+    color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:5px}
+  select.min{appearance:none; -webkit-appearance:none; padding-right:26px; cursor:pointer;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 3l3 3 3-3' stroke='%239fadbc' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat; background-position:right 9px center}
+  .min::placeholder{color:var(--dimmer)}
+  .min:focus{outline:0; border-color:var(--blue)}
+  input.min{text-align:right}
+
+  .quick{display:flex; gap:4px}
+  .quick button{appearance:none; cursor:pointer; font:inherit; font-weight:600; font-size:12px;
+    color:var(--text); background:var(--subtle); border:1px solid transparent; border-radius:5px; padding:7px 0; flex:1 1 0; min-width:0}
+  .quick button:hover{background:var(--subtle-h)}
+  .quick button:active{transform:translateY(1px)}
+  .quick button[aria-pressed="true"]{background:var(--blue); color:var(--btn-text)}
+
+  .customrow{display:flex; gap:6px; margin-top:6px}
+  .customrow input.min{flex:1 1 auto}
+  .customrow select.min{flex:0 0 96px; width:96px}
+
+  .go{appearance:none; cursor:pointer; font:inherit; font-weight:700; font-size:12.5px; width:100%;
+    color:var(--btn-text); background:var(--blue); border:0; border-radius:6px; padding:8px 0; margin-top:10px;
+    display:inline-flex; align-items:center; justify-content:center; gap:7px}
+  .go:hover{filter:brightness(1.08)}
+  .go:active{transform:translateY(1px)}
+  .go:disabled{opacity:.4; cursor:not-allowed; filter:none}
+  .go svg{display:block}
+
+  .active-timer{background:var(--blue-soft); border:1px solid var(--blue-edge); border-radius:7px; padding:10px 12px 9px}
+  .at-count{font-size:22px; font-weight:800; color:var(--head); font-variant-numeric:tabular-nums; line-height:1.15;
+    display:flex; align-items:center; gap:8px}
+  .at-count svg{display:block; flex:0 0 auto}
+  .at-count .due{color:var(--red)}
+  .at-dest{font-size:12.5px; color:var(--text); margin-top:3px}
+  .at-dest b{color:var(--head)}
+  .at-meta{font-size:11.5px; color:var(--dimmer); margin-top:2px; font-variant-numeric:tabular-nums}
+  .at-row{display:flex; align-items:center; margin-top:7px}
+  .link{appearance:none; border:0; background:transparent; cursor:pointer; color:var(--dim);
+    font:inherit; font-size:12px; font-weight:600; padding:4px 7px; border-radius:5px}
+  .link:hover{background:var(--subtle); color:var(--text)}
+  .link.danger{color:var(--red)}
+  .link.danger:hover{background:var(--red-soft)}
+  .link.push{margin-left:auto}
+
+  .hist{margin-top:10px; border-top:1px solid var(--line)}
+  .hist-lbl{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--dimmer); font-weight:700; padding:7px 2px 3px}
+  .he{display:flex; gap:8px; align-items:center; padding:4px 2px; font-size:12px; border-top:1px solid var(--line)}
+  .he:nth-child(2){border-top:0}
+  .he .ts{color:var(--dimmer); flex:0 0 62px; display:flex; flex-direction:column; line-height:1.2; font-variant-numeric:tabular-nums}
+  .he .ts .tsd{font-size:10px}
+  .he .ts .tst{font-size:11px}
+  .he .hn{flex:1 1 auto; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .he .hn b{color:var(--text); font-weight:600}
+  .he .hn small{color:var(--dimmer); margin-left:5px}
+  .empty{font-size:12px; color:var(--dimmer); padding:6px 2px}
+
+  /* dashboard-only */
+  .dash{padding:2px 2px 6px}
+  .auth-row{display:flex; align-items:center; gap:8px; margin:2px 0 4px}
+  .auth-row .who{font-size:11.5px; color:var(--dimmer)}
+  table{width:100%; border-collapse:collapse; font-size:12px}
+  th{text-align:left; color:var(--dimmer); font-weight:700; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; padding:4px 4px; border-bottom:1px solid var(--line)}
+  td{padding:5px 4px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--dim)}
+  td b{color:var(--text); font-weight:600}
+  td .sub{font-size:11px; color:var(--dimmer)}
+  .cd{font-variant-numeric:tabular-nums; white-space:nowrap}
+  .cd.due{color:var(--red); font-weight:700}
+
+  .setup{max-width:560px; margin:26px auto; background:var(--panel); border-radius:10px; padding:16px 20px; color:var(--text)}
+  .setup h2{display:flex; align-items:center; gap:8px; font-size:15px; color:var(--head); margin:0 0 8px}
+  .setup p,.setup li{font-size:13px; color:var(--dim); line-height:1.55}
 </style>
 </head>
 <body>
@@ -50,37 +125,49 @@
 
 <script>
 /* =====================================================================
-   TF-Plan — countdown-and-move Power-Up for Tech Foundry
+   TF-Plan — countdown-and-move Power-Up for UC Davis Tech Foundry
    ---------------------------------------------------------------------
    Chassis modes (?mode=):
-     connector  — TrelloPowerUp.initialize + board scan loop (default)
-     editor     — card popup: set / cancel a timer
-     summary    — card-back section: this card's timer + move history
-     dashboard  — board popup / standalone: auth, all timers, log, setup
+     connector   — TrelloPowerUp.initialize + board scan loop (default)
+     panel       — persistent card-back section: set/cancel timers, history
+     dashboard   — board popup: authorization, all timers, move log
+     authreturn  — top-level window Trello redirects to after Allow
    ---------------------------------------------------------------------
-   Data model (single source of truth, board-level shared data):
+   Data model (board-level shared data, single source of truth):
      tfplan_index : { [cardId]: { cardName, destListId, destListName,
                                   startTs, endTs, durationMin, setByName,
                                   claimedBy?, claimedAt? } }
      tfplan_log   : [ { cardId, cardName, destListName, setByName,
-                        movedTs, status } ]  (newest first, capped)
+                        movedTs } ]  (newest first, capped)
    ===================================================================== */
 
-var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821'; // https://trello.com/power-ups/admin -> your Power-Up -> API key
+var APP_KEY  = 'PASTE_YOUR_TRELLO_API_KEY_HERE';
 var APP_NAME = 'TF-Plan';
 
-var SCAN_INTERVAL_MS = 15000;   // how often the open board checks for expired timers
-var CLAIM_STALE_MS   = 120000;  // a claim older than this is considered dead (client closed mid-move)
-var CLAIM_SETTLE_MS  = 900;     // wait after writing a claim before confirming we won it
+var SCAN_INTERVAL_MS = 15000;
+var CLAIM_STALE_MS   = 120000;
+var CLAIM_SETTLE_MS  = 900;
 var LOG_CAP          = 50;
 
 var CLIENT_ID = 'c-' + Math.random().toString(36).slice(2, 10);
 var TOKEN_KEY = 'tfplan_token_' + APP_KEY;
 
-/* Token is stored in localStorage of THIS origin within the trello.com
-   partition, so the connector, editor, and dashboard iframes all share it.
-   The authorize return window (top-level, different partition) hands the
-   token back via postMessage instead of writing storage directly. */
+/* ----- clock icons ---------------------------------------------------- */
+function clockSvgMarkup(size, color){
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 16 16">' +
+         '<circle cx="8" cy="8" r="6.4" fill="none" stroke="' + color + '" stroke-width="1.7"/>' +
+         '<path d="M8 4.6V8.1l2.7 1.7" fill="none" stroke="' + color + '" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>' +
+         '</svg>';
+}
+function clockDataUri(color){
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(clockSvgMarkup(16, color));
+}
+var ICON_LIGHT_UI = clockDataUri('#42526e');  // shown on light chrome
+var ICON_DARK_UI  = clockDataUri('#e2e3e5');  // shown on dark chrome
+var ICON_NEUTRAL  = clockDataUri('#96999e');  // single-icon slots (card-back section)
+function inlineClock(size){ return clockSvgMarkup(size || 14, 'currentColor'); }
+
+/* ----- token plumbing (partition-proof, see beginAuthorize) ----------- */
 function getStoredToken(){
   try { return localStorage.getItem(TOKEN_KEY); } catch(e){ return null; }
 }
@@ -111,8 +198,6 @@ function beginAuthorize(onDone){
     finish(ev.data.token);
   }
   window.addEventListener('message', onMsg);
-  // fallback for browsers without storage partitioning, where the return
-  // window's own localStorage write IS visible to this iframe
   var pollId = setInterval(function(){
     var tok = getStoredToken();
     if (tok) finish(tok);
@@ -120,9 +205,7 @@ function beginAuthorize(onDone){
   setTimeout(function(){ clearInterval(pollId); window.removeEventListener('message', onMsg); }, 180000);
 }
 
-var GRAY_ICON = 'https://cdn.glitch.global/3b785fd6-6068-4b6a-b6e3-2b6b7e0a94d7/clock.svg'; // swap for your hosted TF icon
-// If you host an icon next to this file, use: var GRAY_ICON = location.origin + location.pathname.replace(/tf-plan\.html.*/,'') + 'icon.svg';
-
+/* ----- shared helpers -------------------------------------------------- */
 function fmtRemaining(ms){
   if (ms <= 0) return 'now';
   var m = Math.ceil(ms / 60000);
@@ -132,10 +215,23 @@ function fmtRemaining(ms){
   var d = Math.floor(h / 24);
   return d + 'd ' + (h % 24) + 'h';
 }
+function fmtCountdown(ms){
+  if (ms <= 0) return '0:00';
+  var s = Math.floor(ms / 1000);
+  var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (h >= 48) return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+  if (h > 0) return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  return m + ':' + String(sec).padStart(2, '0');
+}
 function fmtClock(ts){
   var d = new Date(ts);
   return d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) + ' ' +
          d.toLocaleDateString([], {month:'short', day:'numeric'});
+}
+function fmtTsCol(ts){
+  var d = new Date(ts);
+  return { d: d.toLocaleDateString([], {month:'short', day:'numeric'}),
+           t: d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) };
 }
 function esc(s){
   return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
@@ -143,6 +239,24 @@ function esc(s){
   });
 }
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+/* theme detection — Trello sets data-color-mode on <html>, sometimes late */
+function detectTheme(t){
+  try{
+    var c = t && t.getContext && t.getContext();
+    if (c && (c.theme === 'dark' || c.theme === 'light')) return c.theme;
+  }catch(e){}
+  var a = document.documentElement.getAttribute('data-color-mode');
+  if (a === 'dark' || a === 'light') return a;
+  return 'dark';
+}
+function applyTheme(t){
+  document.documentElement.setAttribute('data-color-mode', detectTheme(t));
+}
+function themeWithRetries(t){
+  applyTheme(t);
+  [150, 500, 1200, 2500].forEach(function(ms){ setTimeout(function(){ applyTheme(t); }, ms); });
+}
 
 /* =====================================================================
    CONNECTOR + SCAN LOOP
@@ -156,10 +270,10 @@ var scanTimerId = null;
 var scanBusy = false;
 
 function ensureScanLoop(t){
-  scanT = t; // always keep the freshest context
+  scanT = t;
   if (!scanTimerId){
     scanTimerId = setInterval(scanAndMove, SCAN_INTERVAL_MS);
-    setTimeout(scanAndMove, 3000); // first pass shortly after board load
+    setTimeout(scanAndMove, 3000);
     console.log('[TF-Plan] scan loop started (' + CLIENT_ID + ')');
   }
 }
@@ -176,7 +290,6 @@ function scanAndMove(){
       var dueIds = Object.keys(index).filter(function(id){
         var e = index[id];
         if (!e || e.endTs > now) return false;
-        // respect a live claim from another client; steal stale ones
         if (e.claimedBy && e.claimedBy !== CLIENT_ID && (now - (e.claimedAt || 0)) < CLAIM_STALE_MS) return false;
         return true;
       });
@@ -184,10 +297,9 @@ function scanAndMove(){
 
       var tok = getStoredToken();
       if (!tok){
-        console.warn('[TF-Plan] timers are due but this client is not authorized — open TF-Plan dashboard and authorize.');
+        console.warn('[TF-Plan] timers are due but this client is not authorized — open the TF-Plan board button and authorize.');
         return null;
       }
-      // process sequentially to keep index writes orderly
       return dueIds.reduce(function(chain, cardId){
         return chain.then(function(){ return moveOne(t, cardId, tok); });
       }, Promise.resolve());
@@ -198,7 +310,6 @@ function scanAndMove(){
 
 function moveOne(t, cardId, token){
   var entry;
-  // 1) claim
   return t.get('board', 'shared', 'tfplan_index').then(function(index){
     index = index || {};
     entry = index[cardId];
@@ -210,14 +321,12 @@ function moveOne(t, cardId, token){
     index[cardId] = entry;
     return t.set('board', 'shared', 'tfplan_index', index);
   })
-  // 2) settle, confirm the claim survived (first writer wins)
   .then(function(){ return sleep(CLAIM_SETTLE_MS); })
   .then(function(){ return t.get('board', 'shared', 'tfplan_index'); })
   .then(function(index){
     index = index || {};
     var e = index[cardId];
     if (!e || e.claimedBy !== CLIENT_ID) return Promise.reject('lost-claim');
-    // 3) the actual move
     var url = 'https://api.trello.com/1/cards/' + cardId +
               '?idList=' + encodeURIComponent(e.destListId) +
               '&key=' + APP_KEY + '&token=' + token;
@@ -226,7 +335,6 @@ function moveOne(t, cardId, token){
       return resp.json();
     });
   })
-  // 4) remove from index + append to log
   .then(function(){
     return t.get('board', 'shared', 'tfplan_index').then(function(index){
       index = index || {};
@@ -242,8 +350,7 @@ function moveOne(t, cardId, token){
         cardName: entry.cardName,
         destListName: entry.destListName,
         setByName: entry.setByName,
-        movedTs: Date.now(),
-        status: 'moved'
+        movedTs: Date.now()
       });
       if (log.length > LOG_CAP) log.length = LOG_CAP;
       return t.set('board', 'shared', 'tfplan_log', log);
@@ -253,9 +360,8 @@ function moveOne(t, cardId, token){
     console.log('[TF-Plan] moved card ' + cardId + ' -> ' + entry.destListName);
   })
   .catch(function(reason){
-    if (reason === 'gone' || reason === 'claimed-elsewhere' || reason === 'lost-claim') return; // benign
+    if (reason === 'gone' || reason === 'claimed-elsewhere' || reason === 'lost-claim') return;
     console.warn('[TF-Plan] moveOne(' + cardId + '):', reason);
-    // release our claim so a later pass (or another client) can retry
     return t.get('board', 'shared', 'tfplan_index').then(function(index){
       index = index || {};
       if (index[cardId] && index[cardId].claimedBy === CLIENT_ID){
@@ -267,27 +373,23 @@ function moveOne(t, cardId, token){
   });
 }
 
+function estimatePanelHeight(entry, histCount){
+  var h = 34;                              // header row + padding
+  h += entry ? 118 : 208;                  // active box vs. destination+duration+start controls
+  if (histCount > 0) h += 30 + Math.min(histCount, 3) * 27;
+  return Math.min(420, h);
+}
+
 function initConnector(){
   window.TrelloPowerUp.initialize({
 
     'board-buttons': function(t){
       ensureScanLoop(t);
       return [{
-        icon: { light: GRAY_ICON, dark: GRAY_ICON },
+        icon: { light: ICON_LIGHT_UI, dark: ICON_DARK_UI },
         text: 'TF-Plan',
         callback: function(t){
           return t.popup({ title:'TF-Plan', url:'./tf-plan.html?mode=dashboard', height:420 });
-        }
-      }];
-    },
-
-    'card-buttons': function(t){
-      ensureScanLoop(t);
-      return [{
-        icon: GRAY_ICON,
-        text: 'TF-Plan Timer',
-        callback: function(t){
-          return t.popup({ title:'TF-Plan Timer', url:'./tf-plan.html?mode=editor', height:330 });
         }
       }];
     },
@@ -301,10 +403,11 @@ function initConnector(){
           dynamic: function(t){
             return t.get('board', 'shared', 'tfplan_index').then(function(idx){
               var e = idx && idx[t.getContext().card];
-              if (!e) return { refresh: 60 }; // timer completed/cancelled; badge fades on next render
+              if (!e) return { refresh: 60 };
               var rem = e.endTs - Date.now();
               return {
-                text: (rem <= 0 ? '⏱ moving…' : '⏱ ' + fmtRemaining(rem)) + ' → ' + e.destListName,
+                icon: ICON_DARK_UI,
+                text: (rem <= 0 ? 'moving…' : fmtRemaining(rem)) + ' → ' + e.destListName,
                 color: rem <= 0 ? 'red' : (rem < 5 * 60000 ? 'yellow' : 'sky'),
                 refresh: 10
               };
@@ -314,20 +417,24 @@ function initConnector(){
       });
     },
 
+    /* persistent panel: always present on every card back */
     'card-back-section': function(t){
       ensureScanLoop(t);
       var cardId = t.getContext().card;
       return Promise.all([
-        t.get('board', 'shared', 'tfplan_index'),
-        t.get('board', 'shared', 'tfplan_log')
+        t.get('board', 'shared', 'tfplan_index').catch(function(){ return null; }),
+        t.get('board', 'shared', 'tfplan_log').catch(function(){ return null; })
       ]).then(function(res){
-        var hasTimer = res[0] && res[0][cardId];
-        var hasHistory = (res[1] || []).some(function(l){ return l.cardId === cardId; });
-        if (!hasTimer && !hasHistory) return null;
+        var entry = (res[0] || {})[cardId] || null;
+        var histCount = (res[1] || []).filter(function(l){ return l.cardId === cardId; }).length;
         return {
           title: 'TF-Plan',
-          icon: GRAY_ICON,
-          content: { type:'iframe', url: t.signUrl('./tf-plan.html?mode=summary'), height: 120 }
+          icon: ICON_NEUTRAL,
+          content: {
+            type: 'iframe',
+            url: t.signUrl('./tf-plan.html?mode=panel'),
+            height: estimatePanelHeight(entry, histCount)
+          }
         };
       });
     }
@@ -336,188 +443,218 @@ function initConnector(){
 }
 
 /* =====================================================================
-   EDITOR — card popup
+   PANEL — persistent card-back section (the primary interface)
    ===================================================================== */
 
-function initEditor(){
+function initPanel(){
   var t = window.TrelloPowerUp.iframe({ appKey: APP_KEY, appName: APP_NAME });
+  themeWithRetries(t);
+
   var app = document.getElementById('app');
   var cardId = t.getContext().card;
-  var selMinutes = 60;
+  var selMinutes = 60;          // preset selection
+  var cache = { entry: undefined, hist: [], lists: [], card: null, me: null };
+  var tickId = null;
+
+  function chip(txt, cls, ttl){
+    var c = document.getElementById('chip');
+    if (!c) return;
+    c.hidden = false; c.textContent = txt; c.className = 'savechip' + (cls ? ' ' + cls : '');
+    if (ttl) setTimeout(function(){ c.hidden = true; }, ttl);
+  }
+
+  function fit(){
+    try{ if (t.sizeTo) t.sizeTo('#app'); }catch(e){}
+  }
+
+  function load(){
+    return Promise.all([
+      t.get('board', 'shared', 'tfplan_index').catch(function(){ return null; }),
+      t.get('board', 'shared', 'tfplan_log').catch(function(){ return null; }),
+      t.lists('id', 'name'),
+      t.card('id', 'name', 'idList'),
+      t.member('fullName')
+    ]).then(function(res){
+      var newEntry = (res[0] || {})[cardId] || null;
+      cache.hist  = (res[1] || []).filter(function(l){ return l.cardId === cardId; }).slice(0, 3);
+      cache.lists = res[2] || [];
+      cache.card  = res[3];
+      cache.me    = res[4];
+      var changed = JSON.stringify(newEntry) !== JSON.stringify(cache.entry);
+      cache.entry = newEntry;
+      return changed;
+    });
+  }
+
+  function histHtml(){
+    if (!cache.hist.length) return '';
+    var h = '<div class="hist"><div class="hist-lbl">Recent moves</div>';
+    cache.hist.forEach(function(l){
+      var ts = fmtTsCol(l.movedTs);
+      h += '<div class="he"><span class="ts"><span class="tsd">' + ts.d + '</span><span class="tst">' + ts.t + '</span></span>' +
+           '<span class="hn">→ <b>' + esc(l.destListName) + '</b><small>set by ' + esc(l.setByName || '—') + '</small></span></div>';
+    });
+    return h + '</div>';
+  }
 
   function render(){
-    Promise.all([
-      t.lists('id', 'name'),
-      t.get('board', 'shared', 'tfplan_index'),
-      t.card('id', 'name', 'idList'),
-      t.member('fullName'),
-      Promise.resolve(!!getStoredToken())
-    ]).then(function(res){
-      var lists = res[0], index = res[1] || {}, card = res[2],
-          me = res[3], authed = res[4];
-      var existing = index[cardId];
+    var e = cache.entry;
+    var html = '<div class="head"><span class="title">' + inlineClock(15) + 'TF-Plan</span>' +
+               '<span class="savechip" id="chip" hidden></span></div>';
 
-      var html = '';
-
-      if (!authed){
-        html += '<div class="active-box" style="border-color:var(--tf-gold);border-left-color:var(--tf-gold)">' +
-                '<b>One-time setup:</b> this browser must authorize TF-Plan so it can move cards.' +
-                '<button class="tf warn" id="btnAuth">Authorize TF-Plan</button></div>';
-      }
-
-      if (existing){
-        var rem = existing.endTs - Date.now();
-        html += '<div class="active-box">' +
-                '<div class="big">' + (rem <= 0 ? 'Moving momentarily' : fmtRemaining(rem) + ' remaining') + '</div>' +
-                'Moves to <b>' + esc(existing.destListName) + '</b> at ' + fmtClock(existing.endTs) + '<br>' +
-                'Set by ' + esc(existing.setByName || '—') +
-                '</div>' +
-                '<button class="tf danger" id="btnCancel">Cancel timer</button>' +
-                '<div class="note">Setting a new timer below replaces this one.</div>';
-      }
-
-      html += '<label for="dest">Destination column</label><select id="dest">';
-      lists.forEach(function(l){
-        var tag = (l.id === card.idList) ? ' (current)' : '';
-        html += '<option value="' + l.id + '"' + (l.id === card.idList ? ' disabled' : '') + '>' +
-                esc(l.name) + tag + '</option>';
+    if (e){
+      var rem = e.endTs - Date.now();
+      html += '<div class="active-timer">' +
+              '<div class="at-count" id="atCount">' + inlineClock(18) +
+                '<span class="num' + (rem <= 0 ? ' due' : '') + '" id="atNum">' +
+                (rem <= 0 ? 'moving…' : fmtCountdown(rem)) + '</span></div>' +
+              '<div class="at-dest">moves to <b>' + esc(e.destListName) + '</b></div>' +
+              '<div class="at-meta num">at ' + fmtClock(e.endTs) + ' · set by ' + esc(e.setByName || '—') + '</div>' +
+              '<div class="at-row"><button class="link danger push" id="btnCancel">Cancel timer</button></div>' +
+              '</div>';
+    } else {
+      html += '<div class="lbl">Destination</div><select class="min" id="dest">';
+      var pickedFirst = false;
+      cache.lists.forEach(function(l){
+        var cur = (l.id === (cache.card && cache.card.idList));
+        var sel = (!cur && !pickedFirst) ? ' selected' : '';
+        if (sel) pickedFirst = true;
+        html += '<option value="' + l.id + '"' + (cur ? ' disabled' : sel) + '>' +
+                esc(l.name) + (cur ? ' (current)' : '') + '</option>';
       });
       html += '</select>';
 
-      html += '<label>Duration</label><div class="presets" id="presets">';
-      [[15,'15 min'],[30,'30 min'],[60,'1 hr'],[120,'2 hr'],[240,'4 hr'],[480,'8 hr']].forEach(function(p){
-        html += '<button data-min="' + p[0] + '"' + (p[0] === selMinutes ? ' class="sel"' : '') + '>' + p[1] + '</button>';
+      html += '<div class="lbl">Duration</div><div class="quick" id="presets">';
+      [[15,'15m'],[30,'30m'],[60,'1h'],[120,'2h'],[240,'4h'],[480,'8h']].forEach(function(p){
+        html += '<button data-min="' + p[0] + '" aria-pressed="' + (p[0] === selMinutes) + '">' + p[1] + '</button>';
       });
       html += '</div>';
-      html += '<div class="row" style="margin-top:8px">' +
-              '<input type="number" id="customVal" min="1" placeholder="Custom…">' +
-              '<select id="customUnit"><option value="1">minutes</option><option value="60">hours</option><option value="1440">days</option></select>' +
+      html += '<div class="customrow">' +
+              '<input class="min num" type="number" id="customVal" min="1" placeholder="custom">' +
+              '<select class="min" id="customUnit"><option value="1">minutes</option><option value="60">hours</option><option value="1440">days</option></select>' +
               '</div>';
+      html += '<button class="go" id="btnStart">' + inlineClock(14) + 'Start timer</button>';
+    }
 
-      html += '<button class="tf primary" id="btnStart">Start timer</button>';
-      html += '<div class="note">The move fires from whichever Tech Foundry machine has this board open. Keep the dashboard tab foregrounded.</div>';
-
-      app.innerHTML = html;
-
-      var authBtn = document.getElementById('btnAuth');
-      if (authBtn) authBtn.onclick = function(){ beginAuthorize(render); };
-
-      var cancelBtn = document.getElementById('btnCancel');
-      if (cancelBtn) cancelBtn.onclick = function(){
-        t.get('board', 'shared', 'tfplan_index').then(function(idx){
-          idx = idx || {};
-          delete idx[cardId];
-          return t.set('board', 'shared', 'tfplan_index', idx);
-        }).then(function(){ return t.closePopup(); });
-      };
-
-      document.getElementById('presets').onclick = function(ev){
-        var b = ev.target.closest('button'); if (!b) return;
-        selMinutes = parseInt(b.getAttribute('data-min'), 10);
-        document.getElementById('customVal').value = '';
-        Array.prototype.forEach.call(this.querySelectorAll('button'), function(x){ x.classList.remove('sel'); });
-        b.classList.add('sel');
-      };
-
-      document.getElementById('customVal').oninput = function(){
-        Array.prototype.forEach.call(document.querySelectorAll('#presets button'), function(x){ x.classList.remove('sel'); });
-      };
-
-      document.getElementById('btnStart').onclick = function(){
-        var destSel = document.getElementById('dest');
-        var destId = destSel.value;
-        var destName = destSel.options[destSel.selectedIndex].text.replace(/ \(current\)$/, '');
-        var cv = parseFloat(document.getElementById('customVal').value);
-        var minutes = (!isNaN(cv) && cv > 0)
-          ? cv * parseInt(document.getElementById('customUnit').value, 10)
-          : selMinutes;
-        if (!destId || !minutes || destId === card.idList) return;
-
-        var now = Date.now();
-        t.get('board', 'shared', 'tfplan_index').then(function(idx){
-          idx = idx || {};
-          idx[cardId] = {
-            cardName: card.name,
-            destListId: destId,
-            destListName: destName,
-            startTs: now,
-            endTs: now + minutes * 60000,
-            durationMin: minutes,
-            setByName: me.fullName
-          };
-          return t.set('board', 'shared', 'tfplan_index', idx);
-        }).then(function(){ return t.closePopup(); });
-      };
-    });
+    html += histHtml();
+    app.innerHTML = html;
+    wire();
+    fit();
   }
-  render();
-  t.render(render);
+
+  function wire(){
+    var cancelBtn = document.getElementById('btnCancel');
+    if (cancelBtn) cancelBtn.onclick = function(){
+      chip('cancelling…');
+      t.get('board', 'shared', 'tfplan_index').then(function(idx){
+        idx = idx || {};
+        delete idx[cardId];
+        return t.set('board', 'shared', 'tfplan_index', idx);
+      }).then(function(){
+        cache.entry = null;
+        render();
+        chip('cancelled', '', 2200);
+      }, function(){ chip('save failed', 'err', 3000); });
+    };
+
+    var presets = document.getElementById('presets');
+    if (presets) presets.onclick = function(ev){
+      var b = ev.target.closest('button'); if (!b) return;
+      selMinutes = parseInt(b.getAttribute('data-min'), 10);
+      document.getElementById('customVal').value = '';
+      Array.prototype.forEach.call(presets.querySelectorAll('button'), function(x){ x.setAttribute('aria-pressed', 'false'); });
+      b.setAttribute('aria-pressed', 'true');
+    };
+
+    var customVal = document.getElementById('customVal');
+    if (customVal) customVal.oninput = function(){
+      Array.prototype.forEach.call(document.querySelectorAll('#presets button'), function(x){ x.setAttribute('aria-pressed', 'false'); });
+    };
+
+    var startBtn = document.getElementById('btnStart');
+    if (startBtn) startBtn.onclick = function(){
+      var destSel = document.getElementById('dest');
+      var destId = destSel.value;
+      var destName = destSel.options[destSel.selectedIndex].text.replace(/ \(current\)$/, '');
+      var cv = parseFloat(customVal.value);
+      var minutes = (!isNaN(cv) && cv > 0)
+        ? cv * parseInt(document.getElementById('customUnit').value, 10)
+        : selMinutes;
+      if (!destId || !minutes || destId === cache.card.idList) return;
+
+      chip('saving…');
+      var now = Date.now();
+      var newEntry = {
+        cardName: cache.card.name,
+        destListId: destId,
+        destListName: destName,
+        startTs: now,
+        endTs: now + minutes * 60000,
+        durationMin: minutes,
+        setByName: cache.me ? cache.me.fullName : null
+      };
+      t.get('board', 'shared', 'tfplan_index').then(function(idx){
+        idx = idx || {};
+        idx[cardId] = newEntry;
+        return t.set('board', 'shared', 'tfplan_index', idx);
+      }).then(function(){
+        cache.entry = newEntry;
+        render();
+        chip('timer set ✓', 'ok', 2200);
+      }, function(){ chip('save failed', 'err', 3000); });
+    };
+  }
+
+  /* 1s local countdown tick — text-only update, no relayout */
+  function tick(){
+    var e = cache.entry;
+    if (!e) return;
+    var el = document.getElementById('atNum');
+    if (!el) return;
+    var rem = e.endTs - Date.now();
+    el.textContent = rem <= 0 ? 'moving…' : fmtCountdown(rem);
+    el.classList.toggle('due', rem <= 0);
+  }
+
+  /* periodic re-sync: catches external changes (timer set elsewhere,
+     move completed by the scan loop, cancel from the dashboard) */
+  function sync(){
+    load().then(function(changed){ if (changed) render(); });
+  }
+
+  load().then(render);
+  t.render(function(){ applyTheme(t); sync(); });
+  tickId = setInterval(tick, 1000);
+  setInterval(sync, 10000);
+  [400, 1000, 2000].forEach(function(ms){ setTimeout(fit, ms); });
 }
 
 /* =====================================================================
-   SUMMARY — card-back section iframe
-   ===================================================================== */
-
-function initSummary(){
-  var t = window.TrelloPowerUp.iframe({ appKey: APP_KEY, appName: APP_NAME });
-  var app = document.getElementById('app');
-  var cardId = t.getContext().card;
-
-  function render(){
-    Promise.all([
-      t.get('board', 'shared', 'tfplan_index'),
-      t.get('board', 'shared', 'tfplan_log')
-    ]).then(function(res){
-      var e = (res[0] || {})[cardId];
-      var mine = (res[1] || []).filter(function(l){ return l.cardId === cardId; }).slice(0, 3);
-      var html = '';
-
-      if (e){
-        var rem = e.endTs - Date.now();
-        html += '<div class="active-box">' +
-                '<div class="big">' + (rem <= 0 ? 'Moving momentarily' : fmtRemaining(rem) + ' remaining') + '</div>' +
-                '→ <b>' + esc(e.destListName) + '</b> at ' + fmtClock(e.endTs) +
-                ' &nbsp;·&nbsp; set by ' + esc(e.setByName || '—') +
-                '</div>';
-      } else {
-        html += '<div class="empty">No active timer on this card.</div>';
-      }
-      if (mine.length){
-        html += '<h3>Recent moves</h3>';
-        mine.forEach(function(l){
-          html += '<div style="font-size:12px;padding:2px 0">→ ' + esc(l.destListName) +
-                  ' at ' + fmtClock(l.movedTs) + ' (set by ' + esc(l.setByName || '—') + ')</div>';
-        });
-      }
-      app.innerHTML = html;
-      t.sizeTo('#app').catch(function(){});
-    });
-  }
-  render();
-  setInterval(render, 20000);
-  t.render(render);
-}
-
-/* =====================================================================
-   DASHBOARD — board-button popup, also usable standalone
+   DASHBOARD — board-button popup; setup instructions when standalone
    ===================================================================== */
 
 function initDashboard(){
-  var inTrello = (window.location.search.indexOf('signature=') !== -1) || window.parent !== window;
-  if (!inTrello){
-    document.getElementById('app').innerHTML =
-      '<h2>TF-Plan</h2>' +
-      '<p class="note" style="font-size:13px">Countdown-and-move Power-Up for UC Davis Tech Foundry.<br><br>' +
-      '<b>Setup:</b><br>' +
-      '1. Create the Power-Up at trello.com/power-ups/admin, iframe connector URL = this page (no ?mode).<br>' +
-      '2. Enable capabilities: board-buttons, card-buttons, card-badges, card-back-section.<br>' +
-      '3. Paste the API key into APP_KEY in this file and redeploy.<br>' +
-      '4. On the dashboard machine, open the board, click TF-Plan, and authorize.</p>';
+  var framed = (window.self !== window.top);
+  var app = document.getElementById('app');
+
+  if (!framed){
+    document.documentElement.setAttribute('data-color-mode', 'dark');
+    document.body.style.background = 'var(--bg)';
+    app.innerHTML =
+      '<div class="setup"><h2>' + inlineClock(16) + 'TF-Plan</h2>' +
+      '<p>Countdown-and-move Power-Up for UC Davis Tech Foundry.</p>' +
+      '<p><b>Setup:</b></p><ol>' +
+      '<li>Create the Power-Up at trello.com/power-ups/admin; iframe connector URL = this page (no ?mode).</li>' +
+      '<li>Add your GitHub Pages origin to Allowed Origins.</li>' +
+      '<li>Enable capabilities: board-buttons, card-badges, card-back-section.</li>' +
+      '<li>Paste the API key into APP_KEY in this file and redeploy.</li>' +
+      '<li>On the always-open machine, open the board, click the TF-Plan board button, and authorize.</li></ol></div>';
     return;
   }
 
   var t = window.TrelloPowerUp.iframe({ appKey: APP_KEY, appName: APP_NAME });
-  var app = document.getElementById('app');
+  themeWithRetries(t);
+  app.className = 'dash';
 
   function render(){
     Promise.all([
@@ -529,44 +666,47 @@ function initDashboard(){
       var ids = Object.keys(index).sort(function(a, b){ return index[a].endTs - index[b].endTs; });
       var html = '';
 
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
-              '<span>Mover authorization: ' +
-              (authed ? '<span class="pill ok">authorized</span><span id="authAs" class="note" style="margin:0 0 0 6px"></span>' +
-                        ' <a href="#" id="deauth" style="font-size:11px;color:var(--tf-red)">de-authorize</a>'
-                      : '<span class="pill bad">not authorized</span>') +
-              '</span></div>';
+      html += '<div class="auth-row"><span class="lbl" style="margin:0">Mover</span>' +
+              (authed
+                ? '<span class="savechip ok">authorized</span><span class="who" id="authAs"></span>' +
+                  '<button class="link danger push" id="deauth">de-authorize</button>'
+                : '<span class="savechip err">not authorized</span>') +
+              '</div>';
       if (!authed){
-        html += '<button class="tf warn" id="btnAuth" style="margin-top:0">Authorize this browser to move cards</button>' +
-                '<div class="note">Timers can be set without this, but at least one always-open machine must be authorized for moves to fire. Use the shared TF service account here.</div>';
+        html += '<button class="go" id="btnAuth" style="margin-top:4px">' + inlineClock(14) + 'Authorize this browser to move cards</button>' +
+                '<div class="empty">Timers can be set without this, but at least one always-open machine must be authorized for moves to fire. Use the shared TF service account there.</div>';
       }
 
-      html += '<h3>Active timers (' + ids.length + ')</h3>';
+      html += '<div class="lbl">Active timers (' + ids.length + ')</div>';
       if (!ids.length){
-        html += '<div class="empty">None. Set one from any card via the TF-Plan Timer button.</div>';
+        html += '<div class="empty">None. Set one from the TF-Plan panel on any card.</div>';
       } else {
         html += '<table><tr><th>Card</th><th>Moves to</th><th>In</th><th></th></tr>';
         ids.forEach(function(id){
           var e = index[id];
           var rem = e.endTs - Date.now();
           html += '<tr>' +
-                  '<td>' + esc(e.cardName) + '<br><span class="note" style="margin:0">' + esc(e.setByName || '') + '</span></td>' +
+                  '<td><b>' + esc(e.cardName) + '</b><br><span class="sub">' + esc(e.setByName || '') + '</span></td>' +
                   '<td>' + esc(e.destListName) + '</td>' +
-                  '<td>' + (rem <= 0 ? '<b style="color:var(--tf-red)">due</b>' : fmtRemaining(rem)) + '</td>' +
-                  '<td><a href="#" data-cancel="' + id + '" style="color:var(--tf-red);font-size:11px">cancel</a></td>' +
+                  '<td class="cd' + (rem <= 0 ? ' due' : '') + '">' + (rem <= 0 ? 'due' : fmtRemaining(rem)) + '</td>' +
+                  '<td><button class="link danger" data-cancel="' + id + '">cancel</button></td>' +
                   '</tr>';
         });
         html += '</table>';
       }
 
-      html += '<h3>Recent moves</h3>';
+      html += '<div class="lbl">Recent moves</div>';
       if (!log.length){
         html += '<div class="empty">No moves logged yet.</div>';
       } else {
-        html += '<table><tr><th>Card</th><th>Moved to</th><th>When</th></tr>';
+        html += '<div class="hist" style="border-top:0;margin-top:0">';
         log.slice(0, 10).forEach(function(l){
-          html += '<tr><td>' + esc(l.cardName) + '</td><td>' + esc(l.destListName) + '</td><td>' + fmtClock(l.movedTs) + '</td></tr>';
+          var ts = fmtTsCol(l.movedTs);
+          html += '<div class="he"><span class="ts"><span class="tsd">' + ts.d + '</span><span class="tst">' + ts.t + '</span></span>' +
+                  '<span class="hn"><b>' + esc(l.cardName) + '</b> → ' + esc(l.destListName) +
+                  '<small>set by ' + esc(l.setByName || '—') + '</small></span></div>';
         });
-        html += '</table>';
+        html += '</div>';
       }
 
       app.innerHTML = html;
@@ -575,13 +715,8 @@ function initDashboard(){
       if (authBtn) authBtn.onclick = function(){ beginAuthorize(render); };
 
       var deauth = document.getElementById('deauth');
-      if (deauth) deauth.onclick = function(ev){
-        ev.preventDefault();
-        clearToken();
-        render();
-      };
+      if (deauth) deauth.onclick = function(){ clearToken(); render(); };
 
-      // show which account this browser's moves will attribute to
       var authAs = document.getElementById('authAs');
       if (authAs && authed){
         fetch('https://api.trello.com/1/members/me?fields=fullName&key=' + APP_KEY +
@@ -593,10 +728,10 @@ function initDashboard(){
           .then(function(me){ if (me) authAs.textContent = 'as ' + me.fullName; })
           .catch(function(){});
       }
-      Array.prototype.forEach.call(app.querySelectorAll('[data-cancel]'), function(a){
-        a.onclick = function(ev){
-          ev.preventDefault();
-          var id = a.getAttribute('data-cancel');
+
+      Array.prototype.forEach.call(app.querySelectorAll('[data-cancel]'), function(b){
+        b.onclick = function(){
+          var id = b.getAttribute('data-cancel');
           t.get('board', 'shared', 'tfplan_index').then(function(idx){
             idx = idx || {};
             delete idx[id];
@@ -608,38 +743,38 @@ function initDashboard(){
   }
   render();
   setInterval(render, 15000);
-  t.render(render);
+  t.render(function(){ applyTheme(t); render(); });
 }
 
 /* =====================================================================
-   AUTH RETURN — top-level window Trello redirects to after the user
-   clicks Allow. Token arrives in the URL fragment; hand it back to the
-   opener iframe via postMessage (partition-proof), write localStorage as
-   a fallback for non-partitioned browsers, then close.
+   AUTH RETURN — top-level window Trello redirects to after Allow.
+   Token arrives in the URL fragment; hand it to the opener iframe via
+   postMessage (partition-proof), write localStorage as fallback, close.
    ===================================================================== */
 
 function initAuthReturn(){
+  document.documentElement.setAttribute('data-color-mode', 'dark');
+  document.body.style.background = 'var(--bg)';
   var app = document.getElementById('app');
   var m = window.location.hash.match(/[#&]token=([^&#?]+)/);
   if (m && m[1]){
-    storeToken(m[1]); // fallback path
+    storeToken(m[1]);
     if (window.opener){
       try { window.opener.postMessage({ type:'tfplan-token', token:m[1] }, location.origin); } catch(e){}
     }
-    app.innerHTML = '<h2>TF-Plan authorized ✓</h2>' +
-                    '<p class="note" style="font-size:13px">This window will close itself. If it doesn\'t, close it and return to Trello.</p>';
+    app.innerHTML = '<div class="setup"><h2>' + inlineClock(16) + 'TF-Plan authorized ✓</h2>' +
+                    '<p>This window will close itself. If it doesn\'t, close it and return to Trello.</p></div>';
     setTimeout(function(){ window.close(); }, 1200);
   } else {
-    app.innerHTML = '<h2>Authorization did not complete</h2>' +
-                    '<p class="note" style="font-size:13px">No token was returned. Close this window and try Authorize again.</p>';
+    app.innerHTML = '<div class="setup"><h2>' + inlineClock(16) + 'Authorization did not complete</h2>' +
+                    '<p>No token was returned. Close this window and try Authorize again.</p></div>';
   }
 }
 
 /* ===================================================================== */
 
 var mode = new URLSearchParams(window.location.search).get('mode') || 'connector';
-if      (mode === 'editor')     initEditor();
-else if (mode === 'summary')    initSummary();
+if      (mode === 'panel')      initPanel();
 else if (mode === 'dashboard')  initDashboard();
 else if (mode === 'authreturn') initAuthReturn();
 else                            initConnector();
