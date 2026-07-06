@@ -156,7 +156,7 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v3.1';   // shown after the name; also cache-busts internal iframe URLs
+var APP_VERSION = 'v3.2';   // shown after the name; also cache-busts internal iframe URLs
 
 var SCAN_INTERVAL_MS = 15000;
 var CLAIM_STALE_MS   = 120000;
@@ -368,11 +368,13 @@ function moveStage(t, cardId, token){
     });
   })
   .then(function(){
+    lastMoveError = null;
     console.log('[TF-Plan] moved card ' + cardId + ' -> ' + executed.destListName + ' (top)');
   })
   .catch(function(reason){
     if (reason === 'gone' || reason === 'claimed-elsewhere' ||
         reason === 'lost-claim' || reason === 'not-due') return;
+    lastMoveError = String(reason);
     console.warn('[TF-Plan] moveStage(' + cardId + '):', reason);
     return t.get('board', 'shared', 'tfplan_index').then(function(index){
       index = index || {};
@@ -393,6 +395,7 @@ function moveStage(t, cardId, token){
 var scanT = null;
 var scanTimerId = null;
 var scanBusy = false;
+var lastMoveError = null;
 
 function ensureScanLoop(t){
   scanT = t;
@@ -408,6 +411,12 @@ function scanAndMove(){
   scanBusy = true;
   var t = scanT;
   var now = Date.now();
+
+  /* heartbeat: prove to panels/dashboard that a mover is alive here */
+  t.set('board', 'shared', 'tfplan_health', {
+    clientId: CLIENT_ID, ts: now, ver: APP_VERSION,
+    authed: !!getStoredToken(), lastError: lastMoveError
+  }).catch(function(){});
 
   t.get('board', 'shared', 'tfplan_index')
     .then(function(index){
@@ -528,16 +537,29 @@ function initPanel(){
       t.get('board', 'shared', 'tfplan_index').catch(function(){ return null; }),
       t.lists('id', 'name'),
       t.card('id', 'name', 'idList'),
-      t.member('fullName')
+      t.member('fullName'),
+      t.get('board', 'shared', 'tfplan_health').catch(function(){ return null; })
     ]).then(function(res){
       var newEntry = normEntry((res[0] || {})[cardId] || null);
       cache.lists = res[1] || [];
       cache.card  = res[2];
       cache.me    = res[3];
+      cache.health = res[4] || null;
       var changed = JSON.stringify(newEntry) !== JSON.stringify(cache.entry);
       cache.entry = newEntry;
       return changed;
     });
+  }
+
+  function overdueMsg(){
+    var h = cache.health;
+    if (!h || (Date.now() - (h.ts || 0)) > 60000)
+      return 'Overdue — no mover heartbeat. No board tab is running TF-Plan; reload the board on the always-open machine.';
+    if (!h.authed)
+      return 'Overdue — a mover is running (' + (h.ver || '?') + ') but not authorized. TF-Plan board button → Authorize.';
+    if (h.lastError)
+      return 'Overdue — mover error: ' + h.lastError;
+    return 'Overdue — mover active (' + (h.ver || '?') + '); retrying…';
   }
 
   function listOptions(id, excludeCurrent, hintCurrent){
@@ -731,6 +753,7 @@ function initPanel(){
     var ovd = document.getElementById('ovd');
     if (ovd){
       var shouldShow = rem < -45000;   // stuck >45s past due: something is wrong
+      if (shouldShow) ovd.textContent = overdueMsg();
       if (ovd.hidden === shouldShow){ ovd.hidden = !shouldShow; fit(); }
     }
   }
@@ -775,9 +798,10 @@ function initDashboard(){
   function render(){
     Promise.all([
       t.get('board', 'shared', 'tfplan_index'),
-      t.get('board', 'shared', 'tfplan_log')
+      t.get('board', 'shared', 'tfplan_log'),
+      t.get('board', 'shared', 'tfplan_health').catch(function(){ return null; })
     ]).then(function(res){
-      var index = res[0] || {}, log = res[1] || [];
+      var index = res[0] || {}, log = res[1] || [], health = res[2] || null;
       var authed = !!getStoredToken();
       var ids = Object.keys(index).sort(function(a, b){
         var sa = pendingStage(index[a]), sb = pendingStage(index[b]);
@@ -785,7 +809,19 @@ function initDashboard(){
       });
       var html = '';
 
-      html += '<div class="auth-row"><span class="lbl" style="margin:0">Mover</span>' +
+      var hb;
+      if (!health || !health.ts) hb = '<span class="savechip err">no heartbeat</span>';
+      else {
+        var ago = Math.round((Date.now() - health.ts) / 1000);
+        hb = ago <= 60
+          ? '<span class="savechip ok">alive ' + ago + 's ago</span><span class="who">' + esc(health.ver || '') +
+            (health.authed ? ' · authorized' : ' · NOT authorized') +
+            (health.lastError ? ' · err: ' + esc(health.lastError) : '') + '</span>'
+          : '<span class="savechip err">stale ' + (ago > 3600 ? Math.round(ago/3600) + 'h' : Math.round(ago/60) + 'm') + ' ago</span>';
+      }
+      html += '<div class="auth-row"><span class="lbl" style="margin:0">Mover</span>' + hb + '</div>';
+
+      html += '<div class="auth-row"><span class="lbl" style="margin:0">This browser</span>' +
               (authed
                 ? '<span class="savechip ok">authorized</span><span class="who" id="authAs"></span>' +
                   '<button class="link danger push" id="deauth">de-authorize</button>'
