@@ -34,7 +34,7 @@
   input[type=number]{-moz-appearance:textfield}
 
   #app{padding:2px 4px 6px}
-  #app.panelwrap{background:var(--subtle); border-radius:10px; padding:12px 14px; margin:2px 2px 6px}
+  #app.panelwrap{background:var(--subtle); border-radius:10px; padding:12px 14px; margin:0}
 
   .head{display:flex; align-items:center; gap:9px; margin-bottom:4px}
   .seg{display:inline-flex; background:var(--subtle); border-radius:6px; padding:2px; gap:2px}
@@ -44,7 +44,7 @@
   .seg button:focus-visible{outline:2px solid var(--blue); outline-offset:1px}
   .savechip{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
   .savechip.ok{color:var(--green);border-color:rgba(75,206,151,.45)}
-  .savechip.err{color:var(--red);border-color:rgba(248,113,104,.45)}
+  .savechip.err{color:var(--yellow);border-color:rgba(245,205,71,.45)}
   .savechip[hidden]{display:none}
   .push{margin-left:auto}
 
@@ -82,11 +82,11 @@
     background:var(--blue); color:var(--btn-text)}
   .quick button.go.inline:hover{background:var(--blue); filter:brightness(1.08)}
 
-  .active-timer{background:var(--blue-soft); border:1px solid var(--blue-edge); border-radius:7px; padding:10px 12px 10px; margin-top:2px}
+  .active-timer{background:var(--subtle); border:1px solid var(--line); border-radius:7px; padding:10px 12px 10px; margin-top:2px}
   .at-count{font-size:22px; font-weight:800; color:var(--head); font-variant-numeric:tabular-nums; line-height:1.15;
     display:flex; align-items:center; gap:8px}
   .at-count svg{display:block; flex:0 0 auto}
-  .at-count .due{color:var(--red)}
+  .at-count .due{color:var(--head)}
   .at-dest{font-size:12.5px; color:var(--text); margin-top:3px}
   .at-dest b{color:var(--head)}
   .at-meta{font-size:11.5px; color:var(--dimmer); margin-top:2px; font-variant-numeric:tabular-nums}
@@ -94,14 +94,14 @@
   .pbar{flex:1 1 auto; height:6px; background:var(--subtle-h); border-radius:999px; overflow:hidden}
   .pfill{height:100%; width:100%; background:var(--blue); border-radius:999px; transition:width 1s linear}
   .pfill.warn{background:var(--yellow)}
-  .pfill.due{background:var(--red); transition:none}
+  .pfill.due{background:var(--yellow); transition:none}
   .pb-total{flex:0 0 auto; font-size:11px; color:var(--dimmer); font-variant-numeric:tabular-nums}
   .at-row{display:flex; align-items:center; margin-top:6px}
   .link{appearance:none; border:0; background:transparent; cursor:pointer; color:var(--dim);
     font:inherit; font-size:12px; font-weight:600; padding:4px 7px; border-radius:5px}
   .link:hover{background:var(--subtle); color:var(--text)}
-  .link.danger{color:var(--red)}
-  .link.danger:hover{background:var(--red-soft)}
+  .link.danger{color:var(--dim)}
+  .link.danger:hover{background:var(--subtle-h); color:var(--text)}
 
   /* dashboard */
   .dash{padding:2px 2px 6px}
@@ -113,7 +113,7 @@
   td b{color:var(--text); font-weight:600}
   td .sub{font-size:11px; color:var(--dimmer)}
   .cd{font-variant-numeric:tabular-nums; white-space:nowrap}
-  .cd.due{color:var(--red); font-weight:700}
+  .cd.due{color:var(--head); font-weight:700}
   .hist{margin-top:2px}
   .he{display:flex; gap:8px; align-items:center; padding:4px 2px; font-size:12px; border-top:1px solid var(--line)}
   .he:first-child{border-top:0}
@@ -159,7 +159,7 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v3.3';   // shown after the name; also cache-busts internal iframe URLs
+var APP_VERSION = 'v3.5';   // shown after the name; also cache-busts internal iframe URLs
 
 var SCAN_INTERVAL_MS = 15000;
 var CLAIM_STALE_MS   = 120000;
@@ -356,7 +356,8 @@ function moveStage(t, cardId, token){
       if (!e.sourceUrl) return Promise.reject('link stage missing source url');
       url = 'https://api.trello.com/1/cards' +
             '?idList=' + encodeURIComponent(executed.destListId) +
-            '&name=' + encodeURIComponent(e.sourceUrl) + '&pos=top' +
+            '&name=' + encodeURIComponent(e.sourceUrl) +
+            '&cardRole=link&pos=top' +
             '&key=' + APP_KEY + '&token=' + token;
       method = 'POST';
     } else { /* delete-card */
@@ -562,6 +563,8 @@ function initPanel(){
 
   var app = document.getElementById('app');
   app.classList.add('panelwrap');
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
   var cardId = t.getContext().card;
   var uiMode = 'boomerang';     // 'move' | 'boomerang' | '2step' — default Boomerang
   var selMinutes = 60;          // preset selection
@@ -639,7 +642,7 @@ function initPanel(){
               '<div class="at-meta num">at ' + (st ? fmtClock(st.at) : '') + ' · set by ' + esc(e.setByName || '—') + '</div>' +
               '<div class="pb-row"><div class="pbar"><div class="pfill" id="pfill" style="width:' + pct.toFixed(2) + '%"></div></div>' +
               '<span class="pb-total" id="pbTotal">' + fmtRemaining(totalMs) + '</span></div>' +
-              '<div class="hintline" id="ovd" hidden style="color:var(--red)">Overdue — no authorized mover has picked this up. Check the TF-Plan board button (authorize / version).</div>' +
+              '<div class="hintline" id="ovd" hidden style="color:var(--yellow)">Overdue — no authorized mover has picked this up. Check the TF-Plan board button (authorize / version).</div>' +
               '<div class="at-row"><span class="savechip push" id="chip" hidden></span>' +
               '<button class="link danger" id="btnCancel" style="margin-left:8px">Cancel</button></div>' +
               '</div>';
