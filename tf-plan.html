@@ -34,11 +34,12 @@
   input[type=number]{-moz-appearance:textfield}
 
   #app{padding:2px 4px 6px}
+  #app.panelwrap{background:var(--subtle); border-radius:10px; padding:12px 14px; margin:2px 2px 6px}
 
   .head{display:flex; align-items:center; gap:9px; margin-bottom:4px}
   .seg{display:inline-flex; background:var(--subtle); border-radius:6px; padding:2px; gap:2px}
   .seg button{appearance:none; border:0; background:transparent; color:var(--dim); cursor:pointer;
-    font:inherit; font-size:12px; font-weight:600; padding:4px 11px; border-radius:5px}
+    font:inherit; font-size:11.5px; font-weight:600; padding:4px 9px; border-radius:5px}
   .seg button[aria-pressed="true"]{background:var(--blue); color:var(--btn-text)}
   .seg button:focus-visible{outline:2px solid var(--blue); outline-offset:1px}
   .savechip{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -60,12 +61,12 @@
 
   /* duration row: 4 presets + inline h/m custom cells */
   .quick{display:flex; gap:4px; align-items:stretch}
-  .quick button{appearance:none; cursor:pointer; font:inherit; font-weight:600; font-size:12px;
-    color:var(--text); background:var(--subtle); border:1px solid transparent; border-radius:5px; padding:7px 0; flex:1 1 0; min-width:0}
+  .quick button{appearance:none; cursor:pointer; font:inherit; font-weight:600; font-size:11.5px;
+    color:var(--text); background:var(--subtle); border:1px solid transparent; border-radius:5px; padding:6px 0; flex:.75 1 0; min-width:0}
   .quick button:hover{background:var(--subtle-h)}
   .quick button:active{transform:translateY(1px)}
   .quick button[aria-pressed="true"]{background:var(--blue); color:var(--btn-text)}
-  .quick .cust{flex:0 0 46px; display:flex; align-items:center; position:relative}
+  .quick .cust{flex:1.15 1 0; min-width:54px; display:flex; align-items:center; position:relative}
   .quick .cust input{width:100%; height:100%; text-align:right; padding:6px 18px 6px 4px; font-size:12px}
   .quick .cust .u{position:absolute; right:6px; font-size:11px; color:var(--dimmer); pointer-events:none}
   .quick .cust input:focus + .u{color:var(--blue)}
@@ -77,7 +78,9 @@
   .go:active{transform:translateY(1px)}
   .go:disabled{opacity:.4; cursor:not-allowed; filter:none}
   .go svg{display:block}
-  .go.inline{width:auto; flex:0 0 auto; margin-top:0; padding:7px 14px; font-size:12px; border-radius:5px}
+  .go.inline, .quick button.go.inline{width:auto; flex:0 0 auto; margin-top:0; padding:6px 14px; font-size:12px; border-radius:5px;
+    background:var(--blue); color:var(--btn-text)}
+  .quick button.go.inline:hover{background:var(--blue); filter:brightness(1.08)}
 
   .active-timer{background:var(--blue-soft); border:1px solid var(--blue-edge); border-radius:7px; padding:10px 12px 10px; margin-top:2px}
   .at-count{font-size:22px; font-weight:800; color:var(--head); font-variant-numeric:tabular-nums; line-height:1.15;
@@ -156,7 +159,7 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v3.2';   // shown after the name; also cache-busts internal iframe URLs
+var APP_VERSION = 'v3.3';   // shown after the name; also cache-busts internal iframe URLs
 
 var SCAN_INTERVAL_MS = 15000;
 var CLAIM_STALE_MS   = 120000;
@@ -273,6 +276,25 @@ function pendingStage(e){
   return (e && e.stages && e.stages.length) ? e.stages[0] : null;
 }
 
+/* cancel semantics: plain entries are removed; a live link entry instead
+   reschedules its delete-card stage to now, so the link card gets cleaned
+   up by whichever authorized client sees it first. Mutates idx. */
+function buildCancel(idx, cardId){
+  var e = normEntry(idx[cardId]);
+  if (!e){ delete idx[cardId]; return 'deleted'; }
+  if (e.mode === 'link' && e.linkCardId){
+    var st = (e.stages && e.stages[0]) || {};
+    e.stages = [{ action:'delete-card', destListId: st.destListId,
+                  destListName: st.destListName || 'column',
+                  at: Date.now(), verb:'removes link in', sym:'⧉✕' }];
+    delete e.claimedBy; delete e.claimedAt;
+    idx[cardId] = e;
+    return 'scheduled';
+  }
+  delete idx[cardId];
+  return 'deleted';
+}
+
 /* theme detection — Trello sets data-color-mode on <html>, sometimes late */
 function detectTheme(t){
   try{
@@ -299,8 +321,9 @@ function themeWithRetries(t){
    ===================================================================== */
 
 function moveStage(t, cardId, token){
-  var executed;   // stage we ended up executing (for the log)
+  var executed;        // stage we ended up executing (for the log)
   var entrySnap;
+  var createdLinkId;   // set when a create-link stage makes a card
   return t.get('board', 'shared', 'tfplan_index').then(function(index){
     index = index || {};
     var e = normEntry(index[cardId]);
@@ -322,27 +345,47 @@ function moveStage(t, cardId, token){
     if (!e || e.claimedBy !== CLIENT_ID) return Promise.reject('lost-claim');
     entrySnap = e;
     executed = e.stages[0];
-    var url = 'https://api.trello.com/1/cards/' + cardId +
-              '?idList=' + encodeURIComponent(executed.destListId) +
-              '&pos=top' +
-              '&key=' + APP_KEY + '&token=' + token;
-    return fetch(url, { method:'PUT' }).then(function(resp){
+    var act = executed.action || 'move';
+    var url, method;
+    if (act === 'move'){
+      url = 'https://api.trello.com/1/cards/' + cardId +
+            '?idList=' + encodeURIComponent(executed.destListId) + '&pos=top' +
+            '&key=' + APP_KEY + '&token=' + token;
+      method = 'PUT';
+    } else if (act === 'create-link'){
+      if (!e.sourceUrl) return Promise.reject('link stage missing source url');
+      url = 'https://api.trello.com/1/cards' +
+            '?idList=' + encodeURIComponent(executed.destListId) +
+            '&name=' + encodeURIComponent(e.sourceUrl) + '&pos=top' +
+            '&key=' + APP_KEY + '&token=' + token;
+      method = 'POST';
+    } else { /* delete-card */
+      if (!e.linkCardId) return null;   // nothing was ever created; nothing to delete
+      url = 'https://api.trello.com/1/cards/' + e.linkCardId +
+            '?key=' + APP_KEY + '&token=' + token;
+      method = 'DELETE';
+    }
+    return fetch(url, { method: method }).then(function(resp){
       if (resp.status === 401){
         clearToken();
-        console.error('[TF-Plan] move rejected 401 — stored token invalid; cleared. Re-authorize via the TF-Plan board button.');
-        return Promise.reject('move failed: HTTP 401 (token cleared)');
+        console.error('[TF-Plan] request rejected 401 — stored token invalid; cleared. Re-authorize via the TF-Plan board button.');
+        return Promise.reject('failed: HTTP 401 (token cleared)');
       }
-      if (!resp.ok) return Promise.reject('move failed: HTTP ' + resp.status);
-      return resp.json();
+      if (act === 'delete-card' && resp.status === 404) return {};  // already gone: fine
+      if (!resp.ok) return Promise.reject(act + ' failed: HTTP ' + resp.status);
+      return resp.json().catch(function(){ return {}; });
+    }).then(function(body){
+      if (act === 'create-link' && body && body.id) createdLinkId = body.id;
     });
   })
   .then(function(){
-    /* shift the executed stage; drop the entry when the sequence is done */
+    /* shift the executed stage; persist created link id; drop entry when done */
     return t.get('board', 'shared', 'tfplan_index').then(function(index){
       index = index || {};
       var e = normEntry(index[cardId]);
       if (e){
         e.stages = (e.stages || []).slice(1);
+        if (createdLinkId) e.linkCardId = createdLinkId;
         if (e.stages.length){
           delete e.claimedBy; delete e.claimedAt;
           index[cardId] = e;
@@ -356,11 +399,13 @@ function moveStage(t, cardId, token){
   .then(function(){
     return t.get('board', 'shared', 'tfplan_log').then(function(log){
       log = log || [];
+      var act = executed.action || 'move';
       log.unshift({
         cardId: cardId,
         cardName: entrySnap.cardName,
         destListName: executed.destListName,
         setByName: entrySnap.setByName,
+        act: act === 'create-link' ? 'linked' : (act === 'delete-card' ? 'unlinked' : 'moved'),
         movedTs: Date.now()
       });
       if (log.length > LOG_CAP) log.length = LOG_CAP;
@@ -369,7 +414,7 @@ function moveStage(t, cardId, token){
   })
   .then(function(){
     lastMoveError = null;
-    console.log('[TF-Plan] moved card ' + cardId + ' -> ' + executed.destListName + ' (top)');
+    console.log('[TF-Plan] ' + (executed.action || 'move') + ' executed for card ' + cardId + ' -> ' + executed.destListName);
   })
   .catch(function(reason){
     if (reason === 'gone' || reason === 'claimed-elsewhere' ||
@@ -475,7 +520,7 @@ function initConnector(){
               var rem = st.at - Date.now();
               return {
                 icon: ICON_DARK_UI,
-                text: (rem <= 0 ? 'moving…' : fmtRemaining(rem)) + ' → ' + st.destListName,
+                text: (rem <= 0 ? 'moving…' : fmtRemaining(rem)) + ' ' + (st.sym || '→') + ' ' + st.destListName,
                 color: rem <= 0 ? 'red' : (rem < 5 * 60000 ? 'yellow' : 'sky'),
                 refresh: 10
               };
@@ -516,6 +561,7 @@ function initPanel(){
   themeWithRetries(t);
 
   var app = document.getElementById('app');
+  app.classList.add('panelwrap');
   var cardId = t.getContext().card;
   var uiMode = 'boomerang';     // 'move' | 'boomerang' | '2step' — default Boomerang
   var selMinutes = 60;          // preset selection
@@ -536,7 +582,7 @@ function initPanel(){
     return Promise.all([
       t.get('board', 'shared', 'tfplan_index').catch(function(){ return null; }),
       t.lists('id', 'name'),
-      t.card('id', 'name', 'idList'),
+      t.card('id', 'name', 'idList', 'url'),
       t.member('fullName'),
       t.get('board', 'shared', 'tfplan_health').catch(function(){ return null; })
     ]).then(function(res){
@@ -602,6 +648,7 @@ function initPanel(){
               '<button data-mode="move" aria-pressed="' + (uiMode === 'move') + '">Move</button>' +
               '<button data-mode="boomerang" aria-pressed="' + (uiMode === 'boomerang') + '">Boomerang</button>' +
               '<button data-mode="2step" aria-pressed="' + (uiMode === '2step') + '">2-Step</button>' +
+              '<button data-mode="link" aria-pressed="' + (uiMode === 'link') + '">Link Card</button>' +
               '</div><span class="savechip push" id="chip" hidden></span></div>';
 
       if (uiMode === 'move'){
@@ -610,9 +657,12 @@ function initPanel(){
       } else if (uiMode === 'boomerang'){
         html += '<div class="lbl">Send to</div>' + listOptions('selA', true, true) +
                 '<div class="hintline">Card goes now, and returns here when the timer ends.</div>';
-      } else {
+      } else if (uiMode === '2step'){
         html += '<div class="lbl">First column (now)</div>' + listOptions('selA', true, true) +
                 '<div class="lbl">Then to (after timer)</div>' + listOptions('selB', false, true);
+      } else {
+        html += '<div class="lbl">Place link in</div>' + listOptions('selA', true, true) +
+                '<div class="hintline">A link card is created there now; this card stays put. The link card is deleted when the timer ends.</div>';
       }
 
       html += '<div class="lbl">Duration</div><div class="quick" id="presets">';
@@ -650,11 +700,18 @@ function initPanel(){
     var cancelBtn = document.getElementById('btnCancel');
     if (cancelBtn) cancelBtn.onclick = function(){
       chip('cancelling…');
+      var outcome;
       t.get('board', 'shared', 'tfplan_index').then(function(idx){
         idx = idx || {};
-        delete idx[cardId];
+        outcome = buildCancel(idx, cardId);
         return t.set('board', 'shared', 'tfplan_index', idx);
       }).then(function(){
+        if (outcome === 'scheduled'){
+          chip('removing link…');
+          var tok = getStoredToken();
+          var done = tok ? moveStage(t, cardId, tok) : Promise.resolve();
+          return done.then(sync);
+        }
         cache.entry = null;
         render();
       }, function(){ chip('failed', 'err', 3000); });
@@ -701,9 +758,12 @@ function initPanel(){
     } else if (uiMode === 'boomerang'){
       stages = [{ destListId: aId, destListName: aName, at: now, verb: 'moves to' },
                 { destListId: curId, destListName: curName, at: now + minutes * 60000, verb: 'returns to' }];
-    } else {
+    } else if (uiMode === '2step'){
       stages = [{ destListId: aId, destListName: aName, at: now, verb: 'moves to' },
                 { destListId: bId, destListName: bName, at: now + minutes * 60000, verb: 'then to' }];
+    } else { /* link */
+      stages = [{ action:'create-link', destListId: aId, destListName: aName, at: now, verb: 'links into', sym: '⧉→' },
+                { action:'delete-card', destListId: aId, destListName: aName, at: now + minutes * 60000, verb: 'removes link in', sym: '⧉✕' }];
     }
 
     var newEntry = {
@@ -714,6 +774,7 @@ function initPanel(){
       durationMin: minutes,
       stages: stages
     };
+    if (uiMode === 'link') newEntry.sourceUrl = cache.card.url;
 
     chip('saving…');
     t.get('board', 'shared', 'tfplan_index').then(function(idx){
@@ -843,7 +904,7 @@ function initDashboard(){
           var rem = st ? st.at - Date.now() : 0;
           html += '<tr>' +
                   '<td><b>' + esc(e.cardName) + '</b><br><span class="sub">' + esc(e.setByName || '') +
-                    (e.mode && e.mode !== 'move' ? ' · ' + (e.mode === '2step' ? '2-step' : e.mode) : '') + '</span></td>' +
+                    (e.mode && e.mode !== 'move' ? ' · ' + (e.mode === '2step' ? '2-step' : (e.mode === 'link' ? 'link card' : e.mode)) : '') + '</span></td>' +
                   '<td>' + esc(st ? ((st.verb || 'moves to') + ' ' + st.destListName) : '—') + '</td>' +
                   '<td class="cd' + (rem <= 0 ? ' due' : '') + '">' + (rem <= 0 ? 'due' : fmtRemaining(rem)) + '</td>' +
                   '<td><button class="link danger" data-cancel="' + id + '">cancel</button></td>' +
@@ -859,8 +920,9 @@ function initDashboard(){
         html += '<div class="hist">';
         log.slice(0, 10).forEach(function(l){
           var ts = fmtTsCol(l.movedTs);
+          var actTxt = l.act === 'linked' ? '⧉ linked into ' : (l.act === 'unlinked' ? '⧉ link removed from ' : '→ ');
           html += '<div class="he"><span class="ts"><span class="tsd">' + ts.d + '</span><span class="tst">' + ts.t + '</span></span>' +
-                  '<span class="hn"><b>' + esc(l.cardName) + '</b> → ' + esc(l.destListName) +
+                  '<span class="hn"><b>' + esc(l.cardName) + '</b> ' + actTxt + esc(l.destListName) +
                   '<small>set by ' + esc(l.setByName || '—') + '</small></span></div>';
         });
         html += '</div>';
@@ -889,10 +951,14 @@ function initDashboard(){
       Array.prototype.forEach.call(app.querySelectorAll('[data-cancel]'), function(b){
         b.onclick = function(){
           var id = b.getAttribute('data-cancel');
+          var outcome;
           t.get('board', 'shared', 'tfplan_index').then(function(idx){
             idx = idx || {};
-            delete idx[id];
+            outcome = buildCancel(idx, id);
             return t.set('board', 'shared', 'tfplan_index', idx);
+          }).then(function(){
+            var tok = getStoredToken();
+            if (outcome === 'scheduled' && tok) return moveStage(t, id, tok);
           }).then(render);
         };
       });
