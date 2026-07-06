@@ -159,7 +159,7 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v3.6';   // shown after the name; also cache-busts internal iframe URLs
+var APP_VERSION = 'v3.7';   // shown after the name; also cache-busts internal iframe URLs
 
 var SCAN_INTERVAL_MS = 15000;
 var CLAIM_STALE_MS   = 120000;
@@ -566,8 +566,9 @@ function initPanel(){
   document.documentElement.style.overflow = 'hidden';
   document.body.style.overflow = 'hidden';
   var cardId = t.getContext().card;
-  var uiMode = 'boomerang';     // 'move' | 'boomerang' | '2step' — default Boomerang
+  var uiMode = 'boomerang';     // 'move' | 'boomerang' | '2step' | 'link'
   var selMinutes = 60;          // preset selection
+  var selIndef = false;         // link mode: create with no deletion timer
   var cache = { entry: undefined, lists: [], card: null, me: null };
 
   function chip(txt, cls, ttl){
@@ -641,7 +642,7 @@ function initPanel(){
               '<div class="at-dest">' + esc(st ? (st.verb || 'moves to') : '') + ' <b>' + esc(st ? st.destListName : '') + '</b></div>' +
               '<div class="at-meta num">at ' + (st ? fmtClock(st.at) : '') + ' · set by ' + esc(e.setByName || '—') + '</div>' +
               '<div class="pb-row"><div class="pbar"><div class="pfill" id="pfill" style="width:' + pct.toFixed(2) + '%"></div></div>' +
-              '<span class="pb-total" id="pbTotal">' + fmtRemaining(totalMs) + '</span></div>' +
+              '<span class="pb-total" id="pbTotal">' + (e.mode === 'link' && !e.durationMin ? '∞' : fmtRemaining(totalMs)) + '</span></div>' +
               '<div class="hintline" id="ovd" hidden style="color:var(--yellow)">Overdue — no authorized mover has picked this up. Check the TF-Plan board button (authorize / version).</div>' +
               '<div class="at-row"><span class="savechip push" id="chip" hidden></span>' +
               '<button class="link danger" id="btnCancel" style="margin-left:8px">Cancel</button></div>' +
@@ -665,13 +666,16 @@ function initPanel(){
                 '<div class="lbl">Then to (after timer)</div>' + listOptions('selB', false, true);
       } else {
         html += '<div class="lbl">Place link in</div>' + listOptions('selA', true, true) +
-                '<div class="hintline">A link card is created there now; this card stays put. The link card is deleted when the timer ends.</div>';
+                '<div class="hintline">A link card is created there now; this card stays put. It is deleted when the timer ends — pick ∞ to keep it indefinitely.</div>';
       }
 
       html += '<div class="lbl">Duration</div><div class="quick" id="presets">';
       [[30,'30m'],[60,'1h'],[120,'2h'],[240,'4h']].forEach(function(p){
-        html += '<button data-min="' + p[0] + '" aria-pressed="' + (p[0] === selMinutes) + '">' + p[1] + '</button>';
+        html += '<button data-min="' + p[0] + '" aria-pressed="' + (!selIndef && p[0] === selMinutes) + '">' + p[1] + '</button>';
       });
+      if (uiMode === 'link'){
+        html += '<button data-min="inf" aria-pressed="' + selIndef + '" title="Keep the link card indefinitely">∞</button>';
+      }
       html += '<span class="cust"><input class="min num" type="number" id="custH" min="0" placeholder="–"><span class="u">h</span></span>' +
               '<span class="cust"><input class="min num" type="number" id="custM" min="0" placeholder="–"><span class="u">m</span></span>' +
               '<button class="go inline" id="btnStart">Start</button>' +
@@ -723,16 +727,19 @@ function initPanel(){
     var presets = document.getElementById('presets');
     if (presets) presets.onclick = function(ev){
       var b = ev.target.closest('button[data-min]'); if (!b) return;
-      selMinutes = parseInt(b.getAttribute('data-min'), 10);
+      var v = b.getAttribute('data-min');
+      selIndef = (v === 'inf');
+      if (!selIndef) selMinutes = parseInt(v, 10);
       document.getElementById('custH').value = '';
       document.getElementById('custM').value = '';
-      Array.prototype.forEach.call(presets.querySelectorAll('button'), function(x){ x.setAttribute('aria-pressed', 'false'); });
+      Array.prototype.forEach.call(presets.querySelectorAll('button[data-min]'), function(x){ x.setAttribute('aria-pressed', 'false'); });
       b.setAttribute('aria-pressed', 'true');
     };
     ['custH', 'custM'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) el.oninput = function(){
-        Array.prototype.forEach.call(document.querySelectorAll('#presets button'), function(x){ x.setAttribute('aria-pressed', 'false'); });
+        selIndef = false;
+        Array.prototype.forEach.call(document.querySelectorAll('#presets button[data-min]'), function(x){ x.setAttribute('aria-pressed', 'false'); });
       };
     });
 
@@ -747,11 +754,13 @@ function initPanel(){
     var aName = selA ? selA.options[selA.selectedIndex].text.replace(/ \(current\)$/, '') : null;
     var bId = selB ? selB.value : null;
     var bName = selB ? selB.options[selB.selectedIndex].text.replace(/ \(current\)$/, '') : null;
+    var indefinite = (uiMode === 'link' && selIndef && !customMinutes());
     var minutes = customMinutes() || selMinutes;
     var curId = cache.card.idList;
     var curName = (cache.lists.filter(function(l){ return l.id === curId; })[0] || {}).name || 'origin';
 
-    if (!minutes || !aId || aId === curId) return;
+    if (!aId || aId === curId) return;
+    if (!indefinite && !minutes) return;
     if (uiMode === '2step' && (!bId || bId === aId)){ chip('pick two different columns', 'err', 2600); return; }
 
     var now = Date.now();
@@ -765,8 +774,10 @@ function initPanel(){
       stages = [{ destListId: aId, destListName: aName, at: now, verb: 'moves to' },
                 { destListId: bId, destListName: bName, at: now + minutes * 60000, verb: 'then to' }];
     } else { /* link */
-      stages = [{ action:'create-link', destListId: aId, destListName: aName, at: now, verb: 'links into', sym: '⧉→' },
-                { action:'delete-card', destListId: aId, destListName: aName, at: now + minutes * 60000, verb: 'removes link in', sym: '⧉✕' }];
+      stages = [{ action:'create-link', destListId: aId, destListName: aName, at: now, verb: 'links into', sym: '⧉→' }];
+      if (!indefinite){
+        stages.push({ action:'delete-card', destListId: aId, destListName: aName, at: now + minutes * 60000, verb: 'removes link in', sym: '⧉✕' });
+      }
     }
 
     var newEntry = {
@@ -774,7 +785,7 @@ function initPanel(){
       cardName: cache.card.name,
       setByName: cache.me ? cache.me.fullName : null,
       createdTs: now,
-      durationMin: minutes,
+      durationMin: indefinite ? 0 : minutes,
       stages: stages
     };
     if (uiMode === 'link') newEntry.sourceUrl = cache.card.shortLink
