@@ -159,7 +159,7 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v3.5';   // shown after the name; also cache-busts internal iframe URLs
+var APP_VERSION = 'v3.6';   // shown after the name; also cache-busts internal iframe URLs
 
 var SCAN_INTERVAL_MS = 15000;
 var CLAIM_STALE_MS   = 120000;
@@ -585,7 +585,7 @@ function initPanel(){
     return Promise.all([
       t.get('board', 'shared', 'tfplan_index').catch(function(){ return null; }),
       t.lists('id', 'name'),
-      t.card('id', 'name', 'idList', 'url'),
+      t.card('id', 'name', 'idList', 'url', 'shortLink'),
       t.member('fullName'),
       t.get('board', 'shared', 'tfplan_health').catch(function(){ return null; })
     ]).then(function(res){
@@ -777,7 +777,9 @@ function initPanel(){
       durationMin: minutes,
       stages: stages
     };
-    if (uiMode === 'link') newEntry.sourceUrl = cache.card.url;
+    if (uiMode === 'link') newEntry.sourceUrl = cache.card.shortLink
+      ? 'https://trello.com/c/' + cache.card.shortLink
+      : cache.card.url;
 
     chip('saving…');
     t.get('board', 'shared', 'tfplan_index').then(function(idx){
