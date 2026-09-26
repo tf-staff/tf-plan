@@ -125,6 +125,29 @@
   .he .hn small{color:var(--dimmer); margin-left:5px}
   .empty{font-size:12px; color:var(--dimmer); padding:6px 2px}
 
+  /* workload */
+  input[type=range].wl{-webkit-appearance:none; appearance:none; flex:1 1 auto; height:6px; border-radius:999px;
+    background:var(--subtle-h); outline:0; margin:0}
+  input[type=range].wl::-webkit-slider-thumb{-webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+    background:var(--blue); border:2px solid var(--bg); cursor:pointer}
+  input[type=range].wl::-moz-range-thumb{width:13px; height:13px; border-radius:50%;
+    background:var(--blue); border:2px solid var(--bg); cursor:pointer}
+  .wl-srow{display:flex; align-items:center; gap:10px}
+  .wl-val{flex:0 0 auto; font-size:12px; color:var(--head); font-weight:700; min-width:96px; text-align:right}
+  textarea.min{width:100%; text-align:left; resize:vertical; font-family:inherit; margin-top:8px; line-height:1.35}
+  .wl-foot{display:flex; align-items:center; gap:8px; margin-top:7px}
+  .wl-check{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text); cursor:pointer; user-select:none}
+  .wl-check input{accent-color:var(--blue); margin:0}
+  .wt{display:flex; align-items:center; gap:8px; padding:5px 2px; font-size:12px; border-top:1px solid var(--line)}
+  #wlTeam .wt:first-child{border-top:0}
+  .wt-name{flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-weight:600}
+  .wt-name .savechip{margin-left:6px; font-size:10px; padding:1px 7px}
+  .wt-bar{flex:0 0 52px; height:6px; background:var(--subtle-h); border-radius:999px; overflow:hidden}
+  .wt-bar i{display:block; height:100%}
+  .wt-meta{flex:0 0 auto; color:var(--dimmer); font-variant-numeric:tabular-nums; font-size:11px}
+  .wt-meta.stale{color:var(--yellow)}
+  .wt-note{font-size:11.5px; color:var(--dim); padding:0 2px 5px; border-top:0}
+
   .setup{max-width:560px; margin:26px auto; background:var(--panel); border-radius:10px; padding:16px 20px; color:var(--text)}
   .setup h2{display:flex; align-items:center; gap:8px; font-size:15px; color:var(--head); margin:0 0 8px}
   .setup p,.setup li{font-size:13px; color:var(--dim); line-height:1.55}
@@ -157,9 +180,9 @@
    All moves land at the TOP of the destination column (pos=top).
    ===================================================================== */
 
-var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
+var APP_KEY  = 'PASTE_YOUR_TRELLO_API_KEY_HERE';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v3.7';   // shown after the name; also cache-busts internal iframe URLs
+var APP_VERSION = 'v4.0';   // shown after the name; also cache-busts internal iframe URLs
 
 var SCAN_INTERVAL_MS = 15000;
 var CLAIM_STALE_MS   = 120000;
@@ -274,6 +297,37 @@ function normEntry(e){
 function pendingStage(e){
   e = normEntry(e);
   return (e && e.stages && e.stages.length) ? e.stages[0] : null;
+}
+
+var WORKLOAD_STALE_MS = 4 * 60 * 60 * 1000;   // nudge when a report is older than this
+var WORKLOAD_NUDGE_EVERY_MS = 60 * 60 * 1000; // and repeat at most hourly while stale
+
+function wlLabel(v){
+  return v <= 2 ? 'Light' : v <= 4 ? 'Moderate' : v <= 6 ? 'Busy' : v <= 8 ? 'Heavy' : 'Overloaded';
+}
+function wlColor(v){
+  return v <= 4 ? 'var(--green)' : v <= 6 ? 'var(--blue)' : 'var(--yellow)';
+}
+
+/* toast the current viewer when their own workload report has gone stale.
+   Opt-in: only members with at least one prior report get nudged. */
+function checkWorkloadNudge(t){
+  var ctx;
+  try { ctx = t.getContext(); } catch(e){ return; }
+  if (!ctx || !ctx.member || typeof t.alert !== 'function') return;
+  t.get('board', 'shared', 'tfplan_workload').then(function(wl){
+    var e = wl && wl[ctx.member];
+    if (!e || !e.updatedTs) return;
+    var now = Date.now();
+    if (now - e.updatedTs < WORKLOAD_STALE_MS) return;
+    var k = 'tfplan_wlnudge_' + ctx.board + '_' + ctx.member;
+    var last = 0;
+    try { last = parseInt(localStorage.getItem(k), 10) || 0; } catch(err){}
+    if (now - last < WORKLOAD_NUDGE_EVERY_MS) return;
+    try { localStorage.setItem(k, String(now)); } catch(err){}
+    t.alert({ message: 'TF-Plan: it\u2019s been a while \u2014 update your workload via the TF-Plan board button.',
+              duration: 12, display: 'info' });
+  }).catch(function(){});
 }
 
 /* cancel semantics: plain entries are removed; a live link entry instead
@@ -464,6 +518,8 @@ function scanAndMove(){
     authed: !!getStoredToken(), lastError: lastMoveError
   }).catch(function(){});
 
+  checkWorkloadNudge(t);
+
   t.get('board', 'shared', 'tfplan_index')
     .then(function(index){
       index = index || {};
@@ -502,7 +558,7 @@ function initConnector(){
         icon: { light: ICON_LIGHT_UI, dark: ICON_DARK_UI },
         text: 'TF-Plan',
         callback: function(t){
-          return t.popup({ title:'TF-Plan ' + APP_VERSION, url:'./tf-plan.html?mode=dashboard&v=' + APP_VERSION, height:420 });
+          return t.popup({ title:'TF-Plan ' + APP_VERSION, url:'./tf-plan.html?mode=dashboard&v=' + APP_VERSION, height:560 });
         }
       }];
     },
@@ -876,9 +932,13 @@ function initDashboard(){
     Promise.all([
       t.get('board', 'shared', 'tfplan_index'),
       t.get('board', 'shared', 'tfplan_log'),
-      t.get('board', 'shared', 'tfplan_health').catch(function(){ return null; })
+      t.get('board', 'shared', 'tfplan_health').catch(function(){ return null; }),
+      t.get('board', 'shared', 'tfplan_workload').catch(function(){ return null; }),
+      t.member('id', 'fullName').catch(function(){ return null; })
     ]).then(function(res){
       var index = res[0] || {}, log = res[1] || [], health = res[2] || null;
+      var workload = res[3] || {}, me = res[4];
+      var myWl = (me && workload[me.id]) || null;
       var authed = !!getStoredToken();
       var ids = Object.keys(index).sort(function(a, b){
         var sa = pendingStage(index[a]), sb = pendingStage(index[b]);
@@ -907,6 +967,48 @@ function initDashboard(){
       if (!authed){
         html += '<button class="go" id="btnAuth" style="margin-top:4px">' + inlineClock(14) + 'Authorize this browser to move cards</button>' +
                 '<div class="empty">Timers can be set without this, but at least one always-open machine must be authorized for moves to fire. Use the shared TF service account there.</div>';
+      }
+
+      /* ---- My workload ---- */
+      var wlVal = myWl ? myWl.level : 5;
+      var wlNote = myWl ? (myWl.note || '') : '';
+      var wlCheckin = !!(myWl && myWl.checkin);
+      html += '<div class="lbl">My workload</div>' +
+              '<div class="wl-srow">' +
+              '<input type="range" class="wl" id="wlSlider" min="1" max="10" step="1" value="' + wlVal + '">' +
+              '<span class="wl-val num" id="wlVal">' + wlVal + ' · ' + wlLabel(wlVal) + '</span>' +
+              '</div>' +
+              '<textarea class="min" id="wlNote" rows="2" maxlength="280" placeholder="notes (optional)">' + esc(wlNote) + '</textarea>' +
+              '<div class="wl-foot">' +
+              '<label class="wl-check"><input type="checkbox" id="wlCheckin"' + (wlCheckin ? ' checked' : '') + '> I need a check-in</label>' +
+              '<span class="savechip push" id="wlChip" hidden></span>' +
+              '<button class="go inline" id="wlSave" style="margin-left:8px">Update</button>' +
+              '</div>' +
+              (myWl && myWl.updatedTs ? '<div class="hintline num">last updated ' + fmtClock(myWl.updatedTs) + '</div>' : '');
+
+      /* ---- Team workload ---- */
+      var wlIds = Object.keys(workload).filter(function(k){ return workload[k] && workload[k].updatedTs; });
+      if (wlIds.length){
+        wlIds.sort(function(a, b){
+          var wa = workload[a], wb = workload[b];
+          if (!!wb.checkin - !!wa.checkin) return (!!wb.checkin) - (!!wa.checkin);
+          return (wb.level || 0) - (wa.level || 0);
+        });
+        html += '<div class="lbl">Team workload</div><div id="wlTeam">';
+        wlIds.forEach(function(mid){
+          var w = workload[mid];
+          var stale = (Date.now() - w.updatedTs) > WORKLOAD_STALE_MS;
+          var ago = Math.round((Date.now() - w.updatedTs) / 60000);
+          var agoTxt = ago < 60 ? ago + 'm' : (ago < 1440 ? Math.round(ago/60) + 'h' : Math.round(ago/1440) + 'd');
+          html += '<div class="wt">' +
+                  '<span class="wt-name">' + esc(w.name || '—') +
+                  (w.checkin ? '<span class="savechip err">check-in</span>' : '') + '</span>' +
+                  '<span class="wt-bar"><i style="width:' + ((w.level || 0) * 10) + '%;background:' + wlColor(w.level || 0) + '"></i></span>' +
+                  '<span class="wt-meta num' + (stale ? ' stale' : '') + '">' + (w.level || '–') + '/10 · ' + agoTxt + '</span>' +
+                  '</div>' +
+                  (w.note ? '<div class="wt-note">' + esc(w.note) + '</div>' : '');
+        });
+        html += '</div>';
       }
 
       html += '<div class="lbl">Active timers (' + ids.length + ')</div>';
@@ -963,6 +1065,39 @@ function initDashboard(){
           .then(function(me){ if (me) authAs.textContent = 'as ' + me.fullName; })
           .catch(function(){});
       }
+
+      var wlSlider = document.getElementById('wlSlider');
+      if (wlSlider) wlSlider.oninput = function(){
+        var v = parseInt(wlSlider.value, 10);
+        document.getElementById('wlVal').textContent = v + ' \u00b7 ' + wlLabel(v);
+      };
+      var wlSave = document.getElementById('wlSave');
+      if (wlSave) wlSave.onclick = function(){
+        if (!me){ return; }
+        var chipEl = document.getElementById('wlChip');
+        function wchip(txt, cls, ttl){
+          if (!chipEl) return;
+          chipEl.hidden = false; chipEl.textContent = txt;
+          chipEl.className = 'savechip push' + (cls ? ' ' + cls : '');
+          if (ttl) setTimeout(function(){ chipEl.hidden = true; }, ttl);
+        }
+        wchip('saving\u2026');
+        t.get('board', 'shared', 'tfplan_workload').then(function(wl){
+          wl = wl || {};
+          wl[me.id] = {
+            name: me.fullName,
+            level: parseInt(wlSlider.value, 10),
+            note: (document.getElementById('wlNote').value || '').trim().slice(0, 280),
+            checkin: document.getElementById('wlCheckin').checked,
+            updatedTs: Date.now()
+          };
+          return t.set('board', 'shared', 'tfplan_workload', wl);
+        }).then(function(){
+          try { localStorage.setItem('tfplan_wlnudge_' + t.getContext().board + '_' + me.id, '0'); } catch(e){}
+          wchip('updated \u2713', 'ok', 2200);
+          setTimeout(render, 2400);
+        }, function(){ wchip('save failed', 'err', 3000); });
+      };
 
       Array.prototype.forEach.call(app.querySelectorAll('[data-cancel]'), function(b){
         b.onclick = function(){
