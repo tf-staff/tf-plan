@@ -2,11 +2,11 @@
 
 Countdown-and-move Power-Up for the UC Davis Tech Foundry (Davis/GBSF + Aggie Square, Sacramento). Engineers put a timer on a Trello project card; when it elapses, the card (or a link-card) is moved automatically — modeling manufacturing hand-offs (e.g., card sits in a machine queue for 2h, then returns to the engineer's column or goes to post-processing). Also carries team workload reporting. Internal tool, used daily by TF staff.
 
-**Current version: 4.1** — the whole Power-Up is the single file `tf-plan.html`, served by GitHub Pages from this repo (`https://tf-staff.github.io/tf-plan/tf-plan.html`). No build step: edit the file, bump `APP_VERSION`, push.
+**Current version: 4.2** — the whole Power-Up is the single file `tf-plan.html`, served by GitHub Pages from this repo (`https://tf-staff.github.io/tf-plan/tf-plan.html`). No build step: edit the file, bump `APP_VERSION`, push.
 
-## ⚠️ Known issue at handoff (check first)
+## API key
 
-The copy on `main` has `var APP_KEY = 'PASTE_YOUR_TRELLO_API_KEY_HERE'` — the real Trello API key was never re-pasted after the v4.0 upload (Sep 26, 2026). With the placeholder, authorization and every REST call (moves, link-card create/delete) fail, and stored tokens can't be found (`TOKEN_KEY` is derived from `APP_KEY`). **First action on any session: confirm whether the deployed file has the real key** (it lives in the Trello Power-Up admin at trello.com/power-ups/admin; it's public-safe by design). Steven has it.
+The real Trello API key was restored in v4.2 (it had been a placeholder since the v4.0 upload). `TOKEN_KEY` is derived from `APP_KEY`, so changing the key orphans stored tokens — every machine must re-authorize. The key lives in the Trello Power-Up admin at trello.com/power-ups/admin (API key tab); it's public-safe by design.
 
 ## Release workflow (agreed with owner — standing permission)
 
@@ -74,4 +74,4 @@ Timers can be *set* by anyone; only machines that will *execute* (kiosk, ideally
 
 ## Verified / open at handoff
 
-Field-verified: Move, Boomerang, badges, countdown/progress, auth flow, heartbeat. **Open:** (1) re-paste the real `APP_KEY` (see top); (2) link-card click-through — v3.5's `cardRole=link` rendered properly but opened a new window; v3.6 switched the name to the bare short URL to match manual copy-link behavior — **unconfirmed**; if it still opens a new window, try `cardRole=mirror` next (mirrors navigate natively and live-display the original); (3) kiosk service-account authorization; (4) v4.0 workload UI untested in the field; (5) possible future: orphan link-card sweeper (needs a registry of created ids), board-scoped duration presets.
+Field-verified: Move, Boomerang, badges, countdown/progress, auth flow, heartbeat. **Open:** (1) field-verify auth + moves after the v4.2 key restore; (2) link-card click-through — v3.5's `cardRole=link` rendered properly but opened a new window; v3.6 switched the name to the bare short URL to match manual copy-link behavior — **unconfirmed**; if it still opens a new window, try `cardRole=mirror` next (mirrors navigate natively and live-display the original); (3) kiosk service-account authorization; (4) v4.0 workload UI untested in the field; (5) possible future: orphan link-card sweeper (needs a registry of created ids), board-scoped duration presets.
