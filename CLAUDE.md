@@ -2,7 +2,7 @@
 
 Countdown-and-move Power-Up for the UC Davis Tech Foundry (Davis/GBSF + Aggie Square, Sacramento). Engineers put a timer on a Trello project card; when it elapses, the card (or a link-card) is moved automatically — modeling manufacturing hand-offs (e.g., card sits in a machine queue for 2h, then returns to the engineer's column or goes to post-processing). Also carries team workload reporting. Internal tool, used daily by TF staff.
 
-**Current version: 4.4** — the whole Power-Up is the single file `tf-plan.html`, served by GitHub Pages from this repo (`https://tf-staff.github.io/tf-plan/tf-plan.html`). No build step: edit the file, bump `APP_VERSION`, push.
+**Current version: 4.5** — the whole Power-Up is the single file `tf-plan.html`, served by GitHub Pages from this repo (`https://tf-staff.github.io/tf-plan/tf-plan.html`). No build step: edit the file, bump `APP_VERSION`, push.
 
 ## API key
 
@@ -70,7 +70,7 @@ Timers can be *set* by anyone; only machines that will *execute* (kiosk, ideally
 
 ## Version history
 
-1.0 popup editor, per-card countdown + REST move · v2 persistent card-back panel, Recharge design language, board-level index, scan loop + claim protocol, DIY auth, clock icons · v3.x staged sequences (Boomerang default, 2-Step), pos=top, progress bar, heartbeat + overdue diagnosis, Link Card (`cardRole=link`, short-URL name, cancel-reschedules-delete, ∞ indefinite), no-red/neutral restyle, versioned titles/URLs · v4.0 workload reporting + 4h nudge · v4.1 release workflow doc · v4.2 real API key restored · v4.3 dashboard split into Workload (main) / Mover tabs · v4.4 note clears after Update, check-in = yellow box around entry, divider between My/Team workload. Harness-verified: boomerang lifecycle, link create→delete lifecycle + cancel semantics, nudge thresholds (opt-in, 4h, hourly cap, never for others' entries), duration math (90m = 1h30m).
+1.0 popup editor, per-card countdown + REST move · v2 persistent card-back panel, Recharge design language, board-level index, scan loop + claim protocol, DIY auth, clock icons · v3.x staged sequences (Boomerang default, 2-Step), pos=top, progress bar, heartbeat + overdue diagnosis, Link Card (`cardRole=link`, short-URL name, cancel-reschedules-delete, ∞ indefinite), no-red/neutral restyle, versioned titles/URLs · v4.0 workload reporting + 4h nudge · v4.1 release workflow doc · v4.2 real API key restored · v4.3 dashboard split into Workload (main) / Mover tabs · v4.4 note clears after Update, check-in = yellow box around entry, divider between My/Team workload · v4.5 fix: check-in box lost its top edge when first in the list (`:first-child` rule overrode it). Harness-verified: boomerang lifecycle, link create→delete lifecycle + cancel semantics, nudge thresholds (opt-in, 4h, hourly cap, never for others' entries), duration math (90m = 1h30m).
 
 ## Verified / open at handoff
 
