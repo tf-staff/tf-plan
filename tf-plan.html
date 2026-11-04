@@ -182,7 +182,7 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v4.2';   // shown after the name; also cache-busts internal iframe URLs
+var APP_VERSION = 'v4.3';   // shown after the name; also cache-busts internal iframe URLs
 
 var SCAN_INTERVAL_MS = 15000;
 var CLAIM_STALE_MS   = 120000;
@@ -927,6 +927,8 @@ function initDashboard(){
   var t = window.TrelloPowerUp.iframe({ appKey: APP_KEY, appName: APP_NAME });
   themeWithRetries(t);
   app.className = 'dash';
+  var tab = 'workload';   // Workload is the main tab; Mover is secondary
+  var wlDraft = null;     // unsaved edits survive the 15s auto-refresh
 
   function render(){
     Promise.all([
@@ -944,7 +946,11 @@ function initDashboard(){
         var sa = pendingStage(index[a]), sb = pendingStage(index[b]);
         return (sa ? sa.at : 0) - (sb ? sb.at : 0);
       });
-      var html = '';
+      var html = '<div class="head"><div class="seg" id="dashTabs" role="tablist" aria-label="Dashboard sections">' +
+                 '<button role="tab" data-tab="workload" aria-pressed="' + (tab === 'workload') + '">Workload</button>' +
+                 '<button role="tab" data-tab="mover" aria-pressed="' + (tab === 'mover') + '">Mover' + (ids.length ? ' (' + ids.length + ')' : '') + '</button>' +
+                 '</div></div>';
+      var wlHtml = '', mvHtml = '';
 
       var hb;
       if (!health || !health.ts) hb = '<span class="savechip err">no heartbeat</span>';
@@ -956,24 +962,24 @@ function initDashboard(){
             (health.lastError ? ' · err: ' + esc(health.lastError) : '') + '</span>'
           : '<span class="savechip err">stale ' + (ago > 3600 ? Math.round(ago/3600) + 'h' : Math.round(ago/60) + 'm') + ' ago</span>';
       }
-      html += '<div class="auth-row"><span class="lbl" style="margin:0">Mover</span>' + hb + '</div>';
+      mvHtml += '<div class="auth-row"><span class="lbl" style="margin:0">Mover</span>' + hb + '</div>';
 
-      html += '<div class="auth-row"><span class="lbl" style="margin:0">This browser</span>' +
+      mvHtml += '<div class="auth-row"><span class="lbl" style="margin:0">This browser</span>' +
               (authed
                 ? '<span class="savechip ok">authorized</span><span class="who" id="authAs"></span>' +
                   '<button class="link danger push" id="deauth">de-authorize</button>'
                 : '<span class="savechip err">not authorized</span>') +
               '</div>';
       if (!authed){
-        html += '<button class="go" id="btnAuth" style="margin-top:4px">' + inlineClock(14) + 'Authorize this browser to move cards</button>' +
+        mvHtml += '<button class="go" id="btnAuth" style="margin-top:4px">' + inlineClock(14) + 'Authorize this browser to move cards</button>' +
                 '<div class="empty">Timers can be set without this, but at least one always-open machine must be authorized for moves to fire. Use the shared TF service account there.</div>';
       }
 
       /* ---- My workload ---- */
-      var wlVal = myWl ? myWl.level : 5;
-      var wlNote = myWl ? (myWl.note || '') : '';
-      var wlCheckin = !!(myWl && myWl.checkin);
-      html += '<div class="lbl">My workload</div>' +
+      var wlVal = wlDraft ? wlDraft.level : (myWl ? myWl.level : 5);
+      var wlNote = wlDraft ? wlDraft.note : (myWl ? (myWl.note || '') : '');
+      var wlCheckin = wlDraft ? wlDraft.checkin : !!(myWl && myWl.checkin);
+      wlHtml += '<div class="lbl">My workload</div>' +
               '<div class="wl-srow">' +
               '<input type="range" class="wl" id="wlSlider" min="1" max="10" step="1" value="' + wlVal + '">' +
               '<span class="wl-val num" id="wlVal">' + wlVal + ' · ' + wlLabel(wlVal) + '</span>' +
@@ -994,13 +1000,13 @@ function initDashboard(){
           if (!!wb.checkin - !!wa.checkin) return (!!wb.checkin) - (!!wa.checkin);
           return (wb.level || 0) - (wa.level || 0);
         });
-        html += '<div class="lbl">Team workload</div><div id="wlTeam">';
+        wlHtml += '<div class="lbl">Team workload</div><div id="wlTeam">';
         wlIds.forEach(function(mid){
           var w = workload[mid];
           var stale = (Date.now() - w.updatedTs) > WORKLOAD_STALE_MS;
           var ago = Math.round((Date.now() - w.updatedTs) / 60000);
           var agoTxt = ago < 60 ? ago + 'm' : (ago < 1440 ? Math.round(ago/60) + 'h' : Math.round(ago/1440) + 'd');
-          html += '<div class="wt">' +
+          wlHtml += '<div class="wt">' +
                   '<span class="wt-name">' + esc(w.name || '—') +
                   (w.checkin ? '<span class="savechip err">check-in</span>' : '') + '</span>' +
                   '<span class="wt-bar"><i style="width:' + ((w.level || 0) * 10) + '%;background:' + wlColor(w.level || 0) + '"></i></span>' +
@@ -1008,19 +1014,21 @@ function initDashboard(){
                   '</div>' +
                   (w.note ? '<div class="wt-note">' + esc(w.note) + '</div>' : '');
         });
-        html += '</div>';
+        wlHtml += '</div>';
+      } else {
+        wlHtml += '<div class="lbl">Team workload</div><div class="empty">No reports yet. Be the first — set your level above and press Update.</div>';
       }
 
-      html += '<div class="lbl">Active timers (' + ids.length + ')</div>';
+      mvHtml += '<div class="lbl">Active timers (' + ids.length + ')</div>';
       if (!ids.length){
-        html += '<div class="empty">None. Set one from the TF-Plan panel on any card.</div>';
+        mvHtml += '<div class="empty">None. Set one from the TF-Plan panel on any card.</div>';
       } else {
-        html += '<table><tr><th>Card</th><th>Next</th><th>In</th><th></th></tr>';
+        mvHtml += '<table><tr><th>Card</th><th>Next</th><th>In</th><th></th></tr>';
         ids.forEach(function(id){
           var e = normEntry(index[id]);
           var st = pendingStage(e);
           var rem = st ? st.at - Date.now() : 0;
-          html += '<tr>' +
+          mvHtml += '<tr>' +
                   '<td><b>' + esc(e.cardName) + '</b><br><span class="sub">' + esc(e.setByName || '') +
                     (e.mode && e.mode !== 'move' ? ' · ' + (e.mode === '2step' ? '2-step' : (e.mode === 'link' ? 'link card' : e.mode)) : '') + '</span></td>' +
                   '<td>' + esc(st ? ((st.verb || 'moves to') + ' ' + st.destListName) : '—') + '</td>' +
@@ -1028,25 +1036,38 @@ function initDashboard(){
                   '<td><button class="link danger" data-cancel="' + id + '">cancel</button></td>' +
                   '</tr>';
         });
-        html += '</table>';
+        mvHtml += '</table>';
       }
 
-      html += '<div class="lbl">Recent moves</div>';
+      mvHtml += '<div class="lbl">Recent moves</div>';
       if (!log.length){
-        html += '<div class="empty">No moves logged yet.</div>';
+        mvHtml += '<div class="empty">No moves logged yet.</div>';
       } else {
-        html += '<div class="hist">';
+        mvHtml += '<div class="hist">';
         log.slice(0, 10).forEach(function(l){
           var ts = fmtTsCol(l.movedTs);
           var actTxt = l.act === 'linked' ? '⧉ linked into ' : (l.act === 'unlinked' ? '⧉ link removed from ' : '→ ');
-          html += '<div class="he"><span class="ts"><span class="tsd">' + ts.d + '</span><span class="tst">' + ts.t + '</span></span>' +
+          mvHtml += '<div class="he"><span class="ts"><span class="tsd">' + ts.d + '</span><span class="tst">' + ts.t + '</span></span>' +
                   '<span class="hn"><b>' + esc(l.cardName) + '</b> ' + actTxt + esc(l.destListName) +
                   '<small>set by ' + esc(l.setByName || '—') + '</small></span></div>';
         });
-        html += '</div>';
+        mvHtml += '</div>';
       }
 
+      html += '<div id="tabWorkload"' + (tab === 'workload' ? '' : ' hidden') + '>' + wlHtml + '</div>' +
+              '<div id="tabMover"' + (tab === 'mover' ? '' : ' hidden') + '>' + mvHtml + '</div>';
       app.innerHTML = html;
+
+      Array.prototype.forEach.call(app.querySelectorAll('#dashTabs [data-tab]'), function(b){
+        b.onclick = function(){
+          tab = b.getAttribute('data-tab');
+          Array.prototype.forEach.call(app.querySelectorAll('#dashTabs [data-tab]'), function(x){
+            x.setAttribute('aria-pressed', String(x === b));
+          });
+          document.getElementById('tabWorkload').hidden = tab !== 'workload';
+          document.getElementById('tabMover').hidden = tab !== 'mover';
+        };
+      });
 
       var authBtn = document.getElementById('btnAuth');
       if (authBtn) authBtn.onclick = function(){ beginAuthorize(render); };
@@ -1067,10 +1088,22 @@ function initDashboard(){
       }
 
       var wlSlider = document.getElementById('wlSlider');
+      function captureDraft(){
+        wlDraft = {
+          level: parseInt(wlSlider.value, 10),
+          note: document.getElementById('wlNote').value || '',
+          checkin: document.getElementById('wlCheckin').checked
+        };
+      }
       if (wlSlider) wlSlider.oninput = function(){
         var v = parseInt(wlSlider.value, 10);
         document.getElementById('wlVal').textContent = v + ' \u00b7 ' + wlLabel(v);
+        captureDraft();
       };
+      if (wlSlider){
+        document.getElementById('wlNote').oninput = captureDraft;
+        document.getElementById('wlCheckin').onchange = captureDraft;
+      }
       var wlSave = document.getElementById('wlSave');
       if (wlSave) wlSave.onclick = function(){
         if (!me){ return; }
@@ -1094,6 +1127,7 @@ function initDashboard(){
           return t.set('board', 'shared', 'tfplan_workload', wl);
         }).then(function(){
           try { localStorage.setItem('tfplan_wlnudge_' + t.getContext().board + '_' + me.id, '0'); } catch(e){}
+          wlDraft = null;
           wchip('updated \u2713', 'ok', 2200);
           setTimeout(render, 2400);
         }, function(){ wchip('save failed', 'err', 3000); });
@@ -1116,7 +1150,11 @@ function initDashboard(){
     });
   }
   render();
-  setInterval(render, 15000);
+  setInterval(function(){
+    var ae = document.activeElement;
+    if (ae && (ae.id === 'wlNote' || ae.id === 'wlSlider')) return;  // don't interrupt typing
+    render();
+  }, 15000);
   t.render(function(){ applyTheme(t); render(); });
 }
 
