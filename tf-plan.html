@@ -105,8 +105,12 @@
 
   /* dashboard */
   .dash{padding:2px 2px 6px}
-  .auth-row{display:flex; align-items:center; gap:8px; margin:2px 0 4px}
-  .auth-row .who{font-size:11.5px; color:var(--dimmer)}
+  .auth-row{display:flex; align-items:center; gap:8px; margin:2px 0 4px; min-height:24px; flex-wrap:nowrap}
+  .auth-row > .lbl{flex:0 0 92px; white-space:nowrap}
+  .auth-row .savechip{flex:0 0 auto; white-space:nowrap}
+  .auth-row .who{font-size:11.5px; color:var(--dimmer); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .auth-row .link{flex:0 0 auto; white-space:nowrap}
+  .auth-name{font-size:11.5px; color:var(--dimmer); margin:-2px 0 4px 100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   table{width:100%; border-collapse:collapse; font-size:12px}
   th{text-align:left; color:var(--dimmer); font-weight:700; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; padding:4px 4px; border-bottom:1px solid var(--line)}
   td{padding:5px 4px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--dim)}
@@ -191,7 +195,7 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v4.7';
+var APP_VERSION = 'v4.8';
 var WL_NOTE_MAX = 160;
 var MOVER_LIVE_MS = 60000;    // a browser counts as online if it checked in within this window
 var MOVER_PRUNE_MS = 120000;  // drop registry entries older than this   // workload note character limit   // shown after the name; also cache-busts internal iframe URLs
@@ -227,7 +231,15 @@ function storeToken(tok){
   try { localStorage.setItem(TOKEN_KEY, tok); } catch(e){}
 }
 function clearToken(){
-  try { localStorage.removeItem(TOKEN_KEY); } catch(e){}
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(TOKEN_KEY + '_name'); } catch(e){}
+}
+/* who this browser is authorized as — cached so the dashboard doesn't
+   re-fetch (and re-flow) on every redraw */
+function getAuthName(){
+  try { return localStorage.getItem(TOKEN_KEY + '_name'); } catch(e){ return null; }
+}
+function setAuthName(n){
+  try { localStorage.setItem(TOKEN_KEY + '_name', n); } catch(e){}
 }
 function beginAuthorize(onDone){
   var returnUrl = location.origin + location.pathname + '?mode=authreturn';
@@ -950,6 +962,10 @@ function initDashboard(){
   app.className = 'dash';
   var tab = 'workload';   // Workload is the main tab; Mover is secondary
   var wlDraft = null;     // unsaved edits survive the 15s auto-refresh
+  var lastHtml = '';      // last drawn markup; identical redraws are skipped
+  var nameFetching = false;
+  var lastRenderTs = 0, pendingRender = null;
+  var RENDER_MIN_GAP_MS = 5000;   // background redraws at most this often
 
   function render(){
     Promise.all([
@@ -977,14 +993,18 @@ function initDashboard(){
                  '</div></div>';
       var wlHtml = '', mvHtml = '';
 
+      /* newest check-in from any browser (registry), falling back to the
+         single last-writer heartbeat for pre-4.7 tabs */
+      var lastTs = (health && health.ts) || 0;
+      Object.keys(movers).forEach(function(k){ if (movers[k] && movers[k].ts > lastTs) lastTs = movers[k].ts; });
       var hb;
-      if (!health || !health.ts) hb = '<span class="savechip err">no heartbeat</span>';
+      if (!lastTs) hb = '<span class="savechip err">no heartbeat</span>';
       else {
-        var ago = Math.round((Date.now() - health.ts) / 1000);
+        var ago = Math.max(0, Math.round((Date.now() - lastTs) / 1000));
+        var errTxt = (health && health.lastError) ? 'err: ' + health.lastError : '';
         hb = ago <= 60
-          ? '<span class="savechip ok">alive ' + ago + 's ago</span><span class="who">' + esc(health.ver || '') +
-            (health.authed ? ' · authorized' : ' · NOT authorized') +
-            (health.lastError ? ' · err: ' + esc(health.lastError) : '') + '</span>'
+          ? '<span class="savechip ok num">alive</span><span class="who"' + (errTxt ? ' title="' + esc(errTxt) + '"' : '') + '>' +
+            esc((health && health.ver) || '') + (errTxt ? ' · ' + esc(errTxt) : '') + '</span>'
           : '<span class="savechip err">stale ' + (ago > 3600 ? Math.round(ago/3600) + 'h' : Math.round(ago/60) + 'm') + ' ago</span>';
       }
       mvHtml += '<div class="auth-row"><span class="lbl" style="margin:0">Mover</span>' + hb + '</div>';
@@ -994,10 +1014,14 @@ function initDashboard(){
 
       mvHtml += '<div class="auth-row"><span class="lbl" style="margin:0">This browser</span>' +
               (authed
-                ? '<span class="savechip ok">authorized</span><span class="who" id="authAs"></span>' +
-                  '<button class="link danger push" id="deauth">de-authorize</button>'
+                ? '<span class="savechip ok">authorized</span><span class="who"></span>' +
+                  '<button class="link danger" id="deauth">de-authorize</button>'
                 : '<span class="savechip err">not authorized</span>') +
               '</div>';
+      if (authed){
+        var authName = getAuthName();
+        mvHtml += '<div class="auth-name" id="authAs">' + (authName ? 'as ' + esc(authName) : '&nbsp;') + '</div>';
+      }
       if (!authed){
         mvHtml += '<button class="go" id="btnAuth" style="margin-top:4px">' + inlineClock(14) + 'Authorize this browser to move cards</button>' +
                 '<div class="empty">Timers can be set without this, but at least one always-open machine must be authorized for moves to fire. Use the shared TF service account there.</div>';
@@ -1086,6 +1110,8 @@ function initDashboard(){
 
       html += '<div id="tabWorkload"' + (tab === 'workload' ? '' : ' hidden') + '>' + wlHtml + '</div>' +
               '<div id="tabMover"' + (tab === 'mover' ? '' : ' hidden') + '>' + mvHtml + '</div>';
+      if (html === lastHtml) return;   // nothing visible changed: leave the page alone
+      lastHtml = html;
       app.innerHTML = html;
 
       Array.prototype.forEach.call(app.querySelectorAll('#dashTabs [data-tab]'), function(b){
@@ -1106,15 +1132,19 @@ function initDashboard(){
       if (deauth) deauth.onclick = function(){ clearToken(); render(); };
 
       var authAs = document.getElementById('authAs');
-      if (authAs && authed){
+      if (authAs && authed && !getAuthName() && !nameFetching){
+        nameFetching = true;
         fetch('https://api.trello.com/1/members/me?fields=fullName&key=' + APP_KEY +
               '&token=' + getStoredToken())
           .then(function(r){
             if (r.status === 401){ clearToken(); render(); return null; }
             return r.ok ? r.json() : null;
           })
-          .then(function(me){ if (me) authAs.textContent = 'as ' + me.fullName; })
-          .catch(function(){});
+          .then(function(me){
+            nameFetching = false;
+            if (me && me.fullName){ setAuthName(me.fullName); requestRender(); }
+          })
+          .catch(function(){ nameFetching = false; });
       }
 
       var wlSlider = document.getElementById('wlSlider');
@@ -1189,13 +1219,25 @@ function initDashboard(){
       });
     });
   }
+  /* Background redraws (Trello fires t.render whenever ANY browser writes
+     board data — i.e. every heartbeat) are coalesced: at most one every
+     RENDER_MIN_GAP_MS, and never while the user is typing. User actions
+     still call render() directly for instant feedback. */
+  function requestRender(){
+    if (pendingRender) return;
+    var wait = Math.max(0, lastRenderTs + RENDER_MIN_GAP_MS - Date.now());
+    pendingRender = setTimeout(function(){
+      pendingRender = null;
+      var ae = document.activeElement;
+      if (ae && (ae.id === 'wlNote' || ae.id === 'wlSlider')) return;  // don't interrupt typing
+      lastRenderTs = Date.now();
+      render();
+    }, wait);
+  }
+  lastRenderTs = Date.now();
   render();
-  setInterval(function(){
-    var ae = document.activeElement;
-    if (ae && (ae.id === 'wlNote' || ae.id === 'wlSlider')) return;  // don't interrupt typing
-    render();
-  }, 15000);
-  t.render(function(){ applyTheme(t); render(); });
+  setInterval(requestRender, 15000);
+  t.render(function(){ applyTheme(t); requestRender(); });
 }
 
 /* =====================================================================
