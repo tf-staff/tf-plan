@@ -2,11 +2,26 @@
 
 Countdown-and-move Power-Up for the UC Davis Tech Foundry (Davis/GBSF + Aggie Square, Sacramento). Engineers put a timer on a Trello project card; when it elapses, the card (or a link-card) is moved automatically — modeling manufacturing hand-offs (e.g., card sits in a machine queue for 2h, then returns to the engineer's column or goes to post-processing). Also carries team workload reporting. Internal tool, used daily by TF staff.
 
-**Current version: 4.0** — the whole Power-Up is the single file `tf-plan.html`, served by GitHub Pages from this repo (`https://tf-staff.github.io/tf-plan/tf-plan.html`). No build step: edit the file, bump `APP_VERSION`, push.
+**Current version: 4.1** — the whole Power-Up is the single file `tf-plan.html`, served by GitHub Pages from this repo (`https://tf-staff.github.io/tf-plan/tf-plan.html`). No build step: edit the file, bump `APP_VERSION`, push.
 
 ## ⚠️ Known issue at handoff (check first)
 
 The copy on `main` has `var APP_KEY = 'PASTE_YOUR_TRELLO_API_KEY_HERE'` — the real Trello API key was never re-pasted after the v4.0 upload (Sep 26, 2026). With the placeholder, authorization and every REST call (moves, link-card create/delete) fail, and stored tokens can't be found (`TOKEN_KEY` is derived from `APP_KEY`). **First action on any session: confirm whether the deployed file has the real key** (it lives in the Trello Power-Up admin at trello.com/power-ups/admin; it's public-safe by design). Steven has it.
+
+## Release workflow (agreed with owner — standing permission)
+
+The owner (Steven) is not a developer — explain everything in plain language.
+
+1. Make the change, then **bump `APP_VERSION`** (every push, no exceptions).
+2. Extract the script and run `node --check` on it.
+3. Load the real `tf-plan.html` in headless Chromium via Playwright and confirm it boots without errors.
+4. Commit with the version first: `v4.1: add X`. **Push straight to `main`** — that's what goes live on GitHub Pages. No PR, no owner review.
+5. Report back plainly: what changed, and that it's live.
+
+**Rollbacks** — git history is the backup system. **Never rewrite or delete history** (no force-push, no reset of `main`).
+- "Go back to 4.0" → restore that version's `tf-plan.html` (`git checkout <commit> -- tf-plan.html`), bump to a new version number, push as a new commit.
+- One bad change in a release → `git revert` just that change; keep the rest.
+- When reporting any revert, remind the owner: card data on Trello is unaffected, but an older version may not display fields added after it.
 
 ## Non-negotiable conventions
 
