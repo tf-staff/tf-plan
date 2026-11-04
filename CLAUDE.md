@@ -2,7 +2,7 @@
 
 Countdown-and-move Power-Up for the UC Davis Tech Foundry (Davis/GBSF + Aggie Square, Sacramento). Engineers put a timer on a Trello project card; when it elapses, the card (or a link-card) is moved automatically — modeling manufacturing hand-offs (e.g., card sits in a machine queue for 2h, then returns to the engineer's column or goes to post-processing). Also carries team workload reporting. Internal tool, used daily by TF staff.
 
-**Current version: 4.8** — the whole Power-Up is the single file `tf-plan.html`, served by GitHub Pages from this repo (`https://tf-staff.github.io/tf-plan/tf-plan.html`). No build step: edit the file, bump `APP_VERSION`, push.
+**Current version: 4.9** — the whole Power-Up is the single file `tf-plan.html`, served by GitHub Pages from this repo (`https://tf-staff.github.io/tf-plan/tf-plan.html`). No build step: edit the file, bump `APP_VERSION`, push.
 
 ## API key
 
@@ -61,7 +61,7 @@ Power-Ups only run while a board tab is open. TF always has ≥1 machine with th
 
 Link-card specifics: created via `POST /1/cards?idList=…&name=<bare short URL https://trello.com/c/{shortLink}>&cardRole=link&pos=top`; created id saved as `linkCardId` for the timed `DELETE`. Cancel on a live link entry doesn't orphan the link-card — it reschedules the delete-card stage to *now* (`buildCancel`). Indefinite (∞ preset, link mode only) = single create stage, entry retires immediately, nothing tracked after.
 
-Workload nudge: opt-in by first report; only the viewer's own staleness nudges them; fires `t.alert` toast when their report is >4h old, repeated at most hourly (localStorage key `tfplan_wlnudge_<board>_<member>`); updating resets the clock. Works only while that person has the board open.
+Workload nudge: opt-in by first report; only the viewer's own staleness nudges them (report >4h old). **v4.9: persistent for everyone** — `t.alert` (30s, Trello's max) re-fired every scan pass (15s) so it never lapses; pressing Update calls `t.hideAlert()` and the next pass sees the fresh report. **Exception:** Trello usernames in `WORKLOAD_NUDGE_EXEMPT` (`techfoundry` = shared TF account, techfoundry@ucdavis.edu; Power-Ups can't read emails, so match is by username, case-insensitive) keep the original brief 12s toast at most hourly (localStorage key `tfplan_wlnudge_<board>_<member>`). Works only while that person has the board open.
 
 ## Authorization (DIY, partition-proof — do not use `t.getRestApi()`)
 
@@ -71,7 +71,7 @@ Timers can be *set* by anyone; only machines that will *execute* (kiosk, ideally
 
 ## Version history
 
-1.0 popup editor, per-card countdown + REST move · v2 persistent card-back panel, Recharge design language, board-level index, scan loop + claim protocol, DIY auth, clock icons · v3.x staged sequences (Boomerang default, 2-Step), pos=top, progress bar, heartbeat + overdue diagnosis, Link Card (`cardRole=link`, short-URL name, cancel-reschedules-delete, ∞ indefinite), no-red/neutral restyle, versioned titles/URLs · v4.0 workload reporting + 4h nudge · v4.1 release workflow doc · v4.2 real API key restored · v4.3 dashboard split into Workload (main) / Mover tabs · v4.4 note clears after Update, check-in = yellow box around entry, divider between My/Team workload · v4.5 fix: check-in box lost its top edge when first in the list (`:first-child` rule overrode it) · v4.6 note limit 160 chars with live counter, note box auto-grows to show full text · v4.7 per-browser mover registry + count on Mover tab · v4.8 steadied dashboard: buffered redraws, cached auth name, no-wrap rows. Harness-verified: boomerang lifecycle, link create→delete lifecycle + cancel semantics, nudge thresholds (opt-in, 4h, hourly cap, never for others' entries), duration math (90m = 1h30m).
+1.0 popup editor, per-card countdown + REST move · v2 persistent card-back panel, Recharge design language, board-level index, scan loop + claim protocol, DIY auth, clock icons · v3.x staged sequences (Boomerang default, 2-Step), pos=top, progress bar, heartbeat + overdue diagnosis, Link Card (`cardRole=link`, short-URL name, cancel-reschedules-delete, ∞ indefinite), no-red/neutral restyle, versioned titles/URLs · v4.0 workload reporting + 4h nudge · v4.1 release workflow doc · v4.2 real API key restored · v4.3 dashboard split into Workload (main) / Mover tabs · v4.4 note clears after Update, check-in = yellow box around entry, divider between My/Team workload · v4.5 fix: check-in box lost its top edge when first in the list (`:first-child` rule overrode it) · v4.6 note limit 160 chars with live counter, note box auto-grows to show full text · v4.7 per-browser mover registry + count on Mover tab · v4.8 steadied dashboard: buffered redraws, cached auth name, no-wrap rows · v4.9 persistent workload reminder (techfoundry exempt). Harness-verified: boomerang lifecycle, link create→delete lifecycle + cancel semantics, nudge thresholds (opt-in, 4h, hourly cap, never for others' entries), duration math (90m = 1h30m).
 
 ## Verified / open at handoff
 

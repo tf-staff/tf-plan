@@ -195,7 +195,7 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v4.8';
+var APP_VERSION = 'v4.9';
 var WL_NOTE_MAX = 160;
 var MOVER_LIVE_MS = 60000;    // a browser counts as online if it checked in within this window
 var MOVER_PRUNE_MS = 120000;  // drop registry entries older than this   // workload note character limit   // shown after the name; also cache-busts internal iframe URLs
@@ -324,7 +324,9 @@ function pendingStage(e){
 }
 
 var WORKLOAD_STALE_MS = 4 * 60 * 60 * 1000;   // nudge when a report is older than this
-var WORKLOAD_NUDGE_EVERY_MS = 60 * 60 * 1000; // and repeat at most hourly while stale
+var WORKLOAD_NUDGE_EVERY_MS = 60 * 60 * 1000; // exempt accounts: brief reminder at most hourly
+var WORKLOAD_NUDGE_EXEMPT = ['techfoundry'];   // Trello usernames that get the brief hourly reminder instead of the persistent one
+var NUDGE_ALERT_SECS = 30;                      // Trello's longest alert; persistent mode re-shows it every scan pass (15s) so it never lapses
 
 function wlLabel(v){
   return v <= 2 ? 'Light' : v <= 4 ? 'Moderate' : v <= 6 ? 'Busy' : v <= 8 ? 'Heavy' : 'Overloaded';
@@ -339,18 +341,31 @@ function checkWorkloadNudge(t){
   var ctx;
   try { ctx = t.getContext(); } catch(e){ return; }
   if (!ctx || !ctx.member || typeof t.alert !== 'function') return;
-  t.get('board', 'shared', 'tfplan_workload').then(function(wl){
+  Promise.all([
+    t.get('board', 'shared', 'tfplan_workload'),
+    t.member('username').catch(function(){ return null; })
+  ]).then(function(res){
+    var wl = res[0], mem = res[1];
     var e = wl && wl[ctx.member];
     if (!e || !e.updatedTs) return;
     var now = Date.now();
     if (now - e.updatedTs < WORKLOAD_STALE_MS) return;
-    var k = 'tfplan_wlnudge_' + ctx.board + '_' + ctx.member;
-    var last = 0;
-    try { last = parseInt(localStorage.getItem(k), 10) || 0; } catch(err){}
-    if (now - last < WORKLOAD_NUDGE_EVERY_MS) return;
-    try { localStorage.setItem(k, String(now)); } catch(err){}
-    t.alert({ message: 'TF-Plan: it\u2019s been a while \u2014 update your workload via the TF-Plan board button.',
-              duration: 12, display: 'info' });
+    var exempt = !!(mem && mem.username && WORKLOAD_NUDGE_EXEMPT.indexOf(String(mem.username).toLowerCase()) !== -1);
+    if (exempt){
+      /* shared TF account (kiosk): the original brief reminder, at most hourly */
+      var k = 'tfplan_wlnudge_' + ctx.board + '_' + ctx.member;
+      var last = 0;
+      try { last = parseInt(localStorage.getItem(k), 10) || 0; } catch(err){}
+      if (now - last < WORKLOAD_NUDGE_EVERY_MS) return;
+      try { localStorage.setItem(k, String(now)); } catch(err){}
+      t.alert({ message: 'TF-Plan: it\u2019s been a while \u2014 update your workload via the TF-Plan board button.',
+                duration: 12, display: 'info' });
+      return;
+    }
+    /* everyone else: persistent — re-shown every scan pass so it stays up
+       until they press Update (which also hides it immediately) */
+    t.alert({ message: 'TF-Plan: your workload report is over 4 hours old \u2014 open the TF-Plan board button and press Update.',
+              duration: NUDGE_ALERT_SECS, display: 'info' });
   }).catch(function(){});
 }
 
@@ -1197,6 +1212,7 @@ function initDashboard(){
           return t.set('board', 'shared', 'tfplan_workload', wl);
         }).then(function(){
           try { localStorage.setItem('tfplan_wlnudge_' + t.getContext().board + '_' + me.id, '0'); } catch(e){}
+          try { if (t.hideAlert) t.hideAlert(); } catch(e){}   // clear a persistent reminder right away
           wlDraft = null;
           wchip('updated \u2713', 'ok', 2200);
           setTimeout(render, 2400);
