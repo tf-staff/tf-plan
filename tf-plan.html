@@ -191,8 +191,10 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v4.6';
-var WL_NOTE_MAX = 160;   // workload note character limit   // shown after the name; also cache-busts internal iframe URLs
+var APP_VERSION = 'v4.7';
+var WL_NOTE_MAX = 160;
+var MOVER_LIVE_MS = 60000;    // a browser counts as online if it checked in within this window
+var MOVER_PRUNE_MS = 120000;  // drop registry entries older than this   // workload note character limit   // shown after the name; also cache-busts internal iframe URLs
 
 var SCAN_INTERVAL_MS = 15000;
 var CLAIM_STALE_MS   = 120000;
@@ -522,10 +524,19 @@ function scanAndMove(){
   var t = scanT;
   var now = Date.now();
 
-  /* heartbeat: prove to panels/dashboard that a mover is alive here */
-  t.set('board', 'shared', 'tfplan_health', {
-    clientId: CLIENT_ID, ts: now, ver: APP_VERSION,
-    authed: !!getStoredToken(), lastError: lastMoveError
+  /* heartbeat: prove to panels/dashboard that a mover is alive here.
+     tfplan_movers = { clientId: { ts, a:1|0 } } — one compact entry per open
+     board tab, so the dashboard can count them. Written together with
+     tfplan_health in a single set. */
+  var authedNow = !!getStoredToken();
+  t.get('board', 'shared', 'tfplan_movers').catch(function(){ return null; }).then(function(m){
+    m = (m && typeof m === 'object') ? m : {};
+    Object.keys(m).forEach(function(k){ if (!m[k] || now - (m[k].ts || 0) > MOVER_PRUNE_MS) delete m[k]; });
+    m[CLIENT_ID] = { ts: now, a: authedNow ? 1 : 0 };
+    return t.set('board', 'shared', {
+      tfplan_health: { clientId: CLIENT_ID, ts: now, ver: APP_VERSION, authed: authedNow, lastError: lastMoveError },
+      tfplan_movers: m
+    });
   }).catch(function(){});
 
   checkWorkloadNudge(t);
@@ -946,8 +957,12 @@ function initDashboard(){
       t.get('board', 'shared', 'tfplan_log'),
       t.get('board', 'shared', 'tfplan_health').catch(function(){ return null; }),
       t.get('board', 'shared', 'tfplan_workload').catch(function(){ return null; }),
-      t.member('id', 'fullName').catch(function(){ return null; })
+      t.member('id', 'fullName').catch(function(){ return null; }),
+      t.get('board', 'shared', 'tfplan_movers').catch(function(){ return null; })
     ]).then(function(res){
+      var movers = res[5] || {};
+      var liveIds = Object.keys(movers).filter(function(k){ return movers[k] && Date.now() - (movers[k].ts || 0) <= MOVER_LIVE_MS; });
+      var liveAuthed = liveIds.filter(function(k){ return movers[k].a; }).length;
       var index = res[0] || {}, log = res[1] || [], health = res[2] || null;
       var workload = res[3] || {}, me = res[4];
       var myWl = (me && workload[me.id]) || null;
@@ -973,6 +988,9 @@ function initDashboard(){
           : '<span class="savechip err">stale ' + (ago > 3600 ? Math.round(ago/3600) + 'h' : Math.round(ago/60) + 'm') + ' ago</span>';
       }
       mvHtml += '<div class="auth-row"><span class="lbl" style="margin:0">Mover</span>' + hb + '</div>';
+      mvHtml += '<div class="auth-row"><span class="lbl" style="margin:0">Browsers</span>' +
+                '<span class="savechip' + (liveAuthed ? ' ok' : ' err') + ' num" id="moverCount">' + liveAuthed + ' can move cards</span>' +
+                '<span class="who num">' + liveIds.length + ' online</span></div>';
 
       mvHtml += '<div class="auth-row"><span class="lbl" style="margin:0">This browser</span>' +
               (authed
