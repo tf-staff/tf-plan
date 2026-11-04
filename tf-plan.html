@@ -135,6 +135,9 @@
   .wl-srow{display:flex; align-items:center; gap:10px}
   .wl-val{flex:0 0 auto; font-size:12px; color:var(--head); font-weight:700; min-width:96px; text-align:right}
   textarea.min{width:100%; text-align:left; resize:vertical; font-family:inherit; margin-top:8px; line-height:1.35}
+  textarea#wlNote{resize:none; overflow:hidden; min-height:66px}
+  .wl-count{font-size:11px; color:var(--dimmer); text-align:right; margin-top:3px; font-variant-numeric:tabular-nums}
+  .wl-count.low{color:var(--yellow)}
   .wl-foot{display:flex; align-items:center; gap:8px; margin-top:7px}
   .wl-check{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text); cursor:pointer; user-select:none}
   .wl-check input{accent-color:var(--blue); margin:0}
@@ -188,7 +191,8 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v4.5';   // shown after the name; also cache-busts internal iframe URLs
+var APP_VERSION = 'v4.6';
+var WL_NOTE_MAX = 160;   // workload note character limit   // shown after the name; also cache-busts internal iframe URLs
 
 var SCAN_INTERVAL_MS = 15000;
 var CLAIM_STALE_MS   = 120000;
@@ -990,7 +994,8 @@ function initDashboard(){
               '<input type="range" class="wl" id="wlSlider" min="1" max="10" step="1" value="' + wlVal + '">' +
               '<span class="wl-val num" id="wlVal">' + wlVal + ' · ' + wlLabel(wlVal) + '</span>' +
               '</div>' +
-              '<textarea class="min" id="wlNote" rows="2" maxlength="280" placeholder="notes (optional)">' + esc(wlNote) + '</textarea>' +
+              '<textarea class="min" id="wlNote" rows="3" maxlength="' + WL_NOTE_MAX + '" placeholder="notes (optional)">' + esc(wlNote) + '</textarea>' +
+              '<div class="wl-count" id="wlCount"></div>' +
               '<div class="wl-foot">' +
               '<label class="wl-check"><input type="checkbox" id="wlCheckin"' + (wlCheckin ? ' checked' : '') + '> I need a check-in</label>' +
               '<span class="savechip push" id="wlChip" hidden></span>' +
@@ -1095,6 +1100,14 @@ function initDashboard(){
       }
 
       var wlSlider = document.getElementById('wlSlider');
+      function fitNote(){   // grow the box to show the whole note; update the counter
+        var n = document.getElementById('wlNote'), c = document.getElementById('wlCount');
+        if (!n) return;
+        n.style.height = 'auto';
+        n.style.height = n.scrollHeight + 2 + 'px';
+        var left = WL_NOTE_MAX - n.value.length;
+        if (c){ c.textContent = left + ' characters left'; c.classList.toggle('low', left <= 20); }
+      }
       function captureDraft(){
         wlDraft = {
           level: parseInt(wlSlider.value, 10),
@@ -1108,7 +1121,9 @@ function initDashboard(){
         captureDraft();
       };
       if (wlSlider){
-        document.getElementById('wlNote').oninput = captureDraft;
+        var noteEl = document.getElementById('wlNote');
+        noteEl.oninput = function(){ fitNote(); captureDraft(); };
+        fitNote();
         document.getElementById('wlCheckin').onchange = captureDraft;
       }
       var wlSave = document.getElementById('wlSave');
@@ -1127,7 +1142,7 @@ function initDashboard(){
           wl[me.id] = {
             name: me.fullName,
             level: parseInt(wlSlider.value, 10),
-            note: (document.getElementById('wlNote').value || '').trim().slice(0, 280),
+            note: (document.getElementById('wlNote').value || '').trim().slice(0, WL_NOTE_MAX),
             checkin: document.getElementById('wlCheckin').checked,
             updatedTs: Date.now()
           };
