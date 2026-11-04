@@ -147,6 +147,12 @@
   .wt-meta{flex:0 0 auto; color:var(--dimmer); font-variant-numeric:tabular-nums; font-size:11px}
   .wt-meta.stale{color:var(--yellow)}
   .wt-note{font-size:11.5px; color:var(--dim); padding:0 2px 5px; border-top:0}
+  .wt-entry{border-top:1px solid var(--line)}
+  #wlTeam .wt-entry:first-child{border-top:0}
+  .wt-entry .wt{border-top:0}
+  .wt-entry.checkin{border:1.5px solid var(--yellow); border-radius:7px; padding:0 6px; margin:4px 0}
+  .wt-entry.checkin + .wt-entry{border-top:0}
+  .wl-divider{border:0; border-top:1px solid var(--line); margin:14px -4px 2px}
 
   .setup{max-width:560px; margin:26px auto; background:var(--panel); border-radius:10px; padding:16px 20px; color:var(--text)}
   .setup h2{display:flex; align-items:center; gap:8px; font-size:15px; color:var(--head); margin:0 0 8px}
@@ -182,7 +188,7 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v4.3';   // shown after the name; also cache-busts internal iframe URLs
+var APP_VERSION = 'v4.4';   // shown after the name; also cache-busts internal iframe URLs
 
 var SCAN_INTERVAL_MS = 15000;
 var CLAIM_STALE_MS   = 120000;
@@ -977,7 +983,7 @@ function initDashboard(){
 
       /* ---- My workload ---- */
       var wlVal = wlDraft ? wlDraft.level : (myWl ? myWl.level : 5);
-      var wlNote = wlDraft ? wlDraft.note : (myWl ? (myWl.note || '') : '');
+      var wlNote = wlDraft ? wlDraft.note : '';   // cleared after each Update
       var wlCheckin = wlDraft ? wlDraft.checkin : !!(myWl && myWl.checkin);
       wlHtml += '<div class="lbl">My workload</div>' +
               '<div class="wl-srow">' +
@@ -1000,23 +1006,24 @@ function initDashboard(){
           if (!!wb.checkin - !!wa.checkin) return (!!wb.checkin) - (!!wa.checkin);
           return (wb.level || 0) - (wa.level || 0);
         });
-        wlHtml += '<div class="lbl">Team workload</div><div id="wlTeam">';
+        wlHtml += '<hr class="wl-divider"><div class="lbl">Team workload</div><div id="wlTeam">';
         wlIds.forEach(function(mid){
           var w = workload[mid];
           var stale = (Date.now() - w.updatedTs) > WORKLOAD_STALE_MS;
           var ago = Math.round((Date.now() - w.updatedTs) / 60000);
           var agoTxt = ago < 60 ? ago + 'm' : (ago < 1440 ? Math.round(ago/60) + 'h' : Math.round(ago/1440) + 'd');
-          wlHtml += '<div class="wt">' +
-                  '<span class="wt-name">' + esc(w.name || '—') +
-                  (w.checkin ? '<span class="savechip err">check-in</span>' : '') + '</span>' +
+          wlHtml += '<div class="wt-entry' + (w.checkin ? ' checkin' : '') + '"' +
+                  (w.checkin ? ' title="Asked for a check-in"' : '') + '><div class="wt">' +
+                  '<span class="wt-name">' + esc(w.name || '—') + '</span>' +
                   '<span class="wt-bar"><i style="width:' + ((w.level || 0) * 10) + '%;background:' + wlColor(w.level || 0) + '"></i></span>' +
                   '<span class="wt-meta num' + (stale ? ' stale' : '') + '">' + (w.level || '–') + '/10 · ' + agoTxt + '</span>' +
                   '</div>' +
-                  (w.note ? '<div class="wt-note">' + esc(w.note) + '</div>' : '');
+                  (w.note ? '<div class="wt-note">' + esc(w.note) + '</div>' : '') +
+                  '</div>';
         });
         wlHtml += '</div>';
       } else {
-        wlHtml += '<div class="lbl">Team workload</div><div class="empty">No reports yet. Be the first — set your level above and press Update.</div>';
+        wlHtml += '<hr class="wl-divider"><div class="lbl">Team workload</div><div class="empty">No reports yet. Be the first — set your level above and press Update.</div>';
       }
 
       mvHtml += '<div class="lbl">Active timers (' + ids.length + ')</div>';
