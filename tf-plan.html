@@ -143,6 +143,7 @@
   .wl-count{font-size:11px; color:var(--dimmer); text-align:right; margin-top:3px; font-variant-numeric:tabular-nums}
   .wl-count.low{color:var(--yellow)}
   .wl-foot{display:flex; align-items:center; gap:8px; margin-top:7px}
+  .wl-remind .wl-check{font-size:11.5px; color:var(--dim)}
   .wl-check{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text); cursor:pointer; user-select:none}
   .wl-check input{accent-color:var(--blue); margin:0}
   .wt{display:flex; align-items:center; gap:8px; padding:5px 2px; font-size:12px; border-top:1px solid var(--line)}
@@ -195,7 +196,7 @@
 
 var APP_KEY  = '6268ba8d8351a5d9b0ca51b209ccd821';
 var APP_NAME = 'TF-Plan';
-var APP_VERSION = 'v4.9';
+var APP_VERSION = 'v4.10';
 var WL_NOTE_MAX = 160;
 var MOVER_LIVE_MS = 60000;    // a browser counts as online if it checked in within this window
 var MOVER_PRUNE_MS = 120000;  // drop registry entries older than this   // workload note character limit   // shown after the name; also cache-busts internal iframe URLs
@@ -324,9 +325,12 @@ function pendingStage(e){
 }
 
 var WORKLOAD_STALE_MS = 4 * 60 * 60 * 1000;   // nudge when a report is older than this
-var WORKLOAD_NUDGE_EVERY_MS = 60 * 60 * 1000; // exempt accounts: brief reminder at most hourly
-var WORKLOAD_NUDGE_EXEMPT = ['techfoundry'];   // Trello usernames that get the brief hourly reminder instead of the persistent one
-var NUDGE_ALERT_SECS = 30;                      // Trello's longest alert; persistent mode re-shows it every scan pass (15s) so it never lapses
+var WORKLOAD_NUDGE_EVERY_MS = 4 * 60 * 60 * 1000; // while still stale, repeat at most every 4h
+var WORKLOAD_NUDGE_EXEMPT = ['techfoundry'];   // Trello usernames that get the brief 12s version
+var NUDGE_ALERT_SECS = 30;                      // Trello's longest alert (it cannot be made permanent)
+/* Per-person on/off switch: member-private data, so it follows the person
+   across browsers and costs no board storage. Missing = on. */
+var REMIND_KEY = 'tfplan_remind';
 
 function wlLabel(v){
   return v <= 2 ? 'Light' : v <= 4 ? 'Moderate' : v <= 6 ? 'Busy' : v <= 8 ? 'Heavy' : 'Overloaded';
@@ -343,29 +347,25 @@ function checkWorkloadNudge(t){
   if (!ctx || !ctx.member || typeof t.alert !== 'function') return;
   Promise.all([
     t.get('board', 'shared', 'tfplan_workload'),
-    t.member('username').catch(function(){ return null; })
+    t.member('username').catch(function(){ return null; }),
+    t.get('member', 'private', REMIND_KEY).catch(function(){ return null; })
   ]).then(function(res){
-    var wl = res[0], mem = res[1];
+    var wl = res[0], mem = res[1], remind = res[2];
+    if (remind === false) return;                 // person turned reminders off
     var e = wl && wl[ctx.member];
-    if (!e || !e.updatedTs) return;
+    if (!e || !e.updatedTs) return;               // opt-in: only after a first report
     var now = Date.now();
     if (now - e.updatedTs < WORKLOAD_STALE_MS) return;
+    /* once when the report turns 4h old, then at most every 4h while it stays
+       stale. Update resets the stamp to 0 (dashboard). */
+    var k = 'tfplan_wlnudge_' + ctx.board + '_' + ctx.member;
+    var last = 0;
+    try { last = parseInt(localStorage.getItem(k), 10) || 0; } catch(err){}
+    if (now - last < WORKLOAD_NUDGE_EVERY_MS) return;
+    try { localStorage.setItem(k, String(now)); } catch(err){}
     var exempt = !!(mem && mem.username && WORKLOAD_NUDGE_EXEMPT.indexOf(String(mem.username).toLowerCase()) !== -1);
-    if (exempt){
-      /* shared TF account (kiosk): the original brief reminder, at most hourly */
-      var k = 'tfplan_wlnudge_' + ctx.board + '_' + ctx.member;
-      var last = 0;
-      try { last = parseInt(localStorage.getItem(k), 10) || 0; } catch(err){}
-      if (now - last < WORKLOAD_NUDGE_EVERY_MS) return;
-      try { localStorage.setItem(k, String(now)); } catch(err){}
-      t.alert({ message: 'TF-Plan: it\u2019s been a while \u2014 update your workload via the TF-Plan board button.',
-                duration: 12, display: 'info' });
-      return;
-    }
-    /* everyone else: persistent — re-shown every scan pass so it stays up
-       until they press Update (which also hides it immediately) */
     t.alert({ message: 'TF-Plan: your workload report is over 4 hours old \u2014 open the TF-Plan board button and press Update.',
-              duration: NUDGE_ALERT_SECS, display: 'info' });
+              duration: exempt ? 12 : NUDGE_ALERT_SECS, display: 'info' });
   }).catch(function(){});
 }
 
@@ -989,8 +989,10 @@ function initDashboard(){
       t.get('board', 'shared', 'tfplan_health').catch(function(){ return null; }),
       t.get('board', 'shared', 'tfplan_workload').catch(function(){ return null; }),
       t.member('id', 'fullName').catch(function(){ return null; }),
-      t.get('board', 'shared', 'tfplan_movers').catch(function(){ return null; })
+      t.get('board', 'shared', 'tfplan_movers').catch(function(){ return null; }),
+      t.get('member', 'private', REMIND_KEY).catch(function(){ return null; })
     ]).then(function(res){
+      var remindOn = res[6] !== false;
       var movers = res[5] || {};
       var liveIds = Object.keys(movers).filter(function(k){ return movers[k] && Date.now() - (movers[k].ts || 0) <= MOVER_LIVE_MS; });
       var liveAuthed = liveIds.filter(function(k){ return movers[k].a; }).length;
@@ -1058,7 +1060,9 @@ function initDashboard(){
               '<span class="savechip push" id="wlChip" hidden></span>' +
               '<button class="go inline" id="wlSave" style="margin-left:8px">Update</button>' +
               '</div>' +
-              (myWl && myWl.updatedTs ? '<div class="hintline num">last updated ' + fmtClock(myWl.updatedTs) + '</div>' : '');
+              (myWl && myWl.updatedTs ? '<div class="hintline num">last updated ' + fmtClock(myWl.updatedTs) + '</div>' : '') +
+              '<div class="wl-foot wl-remind"><label class="wl-check"><input type="checkbox" id="wlRemind"' + (remindOn ? ' checked' : '') +
+              '> Remind me when my report is 4+ hours old</label><span class="savechip push" id="wlRemindChip" hidden></span></div>';
 
       /* ---- Team workload ---- */
       var wlIds = Object.keys(workload).filter(function(k){ return workload[k] && workload[k].updatedTs; });
@@ -1189,6 +1193,21 @@ function initDashboard(){
         fitNote();
         document.getElementById('wlCheckin').onchange = captureDraft;
       }
+      var wlRemind = document.getElementById('wlRemind');
+      if (wlRemind) wlRemind.onchange = function(){
+        var on = wlRemind.checked, rc = document.getElementById('wlRemindChip');
+        t.set('member', 'private', REMIND_KEY, on).then(function(){
+          if (!on){ try { if (t.hideAlert) t.hideAlert(); } catch(e){} }
+          if (rc){ rc.hidden = false; rc.className = 'savechip push ok'; rc.textContent = on ? 'on \u2713' : 'off \u2713';
+                   setTimeout(function(){ rc.hidden = true; }, 2000); }
+          setTimeout(render, 2100);
+        }, function(){
+          wlRemind.checked = !on;
+          if (rc){ rc.hidden = false; rc.className = 'savechip push err'; rc.textContent = 'save failed';
+                   setTimeout(function(){ rc.hidden = true; }, 3000); }
+        });
+      };
+
       var wlSave = document.getElementById('wlSave');
       if (wlSave) wlSave.onclick = function(){
         if (!me){ return; }
